@@ -118,6 +118,10 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
     {\
         return SIMD_Type_t<int, XXX, T_ElementType>();\
     }\
+    SIMD_Type_t operator-(const SIMD_Type_t& other) const\
+    {\
+        return SIMD_Type_t<int, XXX, T_ElementType>();\
+    }\
     \
     using Type = int;\
     static constexpr unsigned int Size = XXX;\
@@ -128,7 +132,7 @@ namespace SIMD \
 {\
     template<typename ElementType=int32_t>\
     using int_##XXX = SIMD_Type_t<int, XXX,ElementType>; \
-}\
+}
 
 
 
@@ -144,6 +148,50 @@ SIMD_Type_t<int, 128, int##XX##_t> SIMD_Type_t<int, 128, int##XX##_t>::operator+
 	__m128i simdData1 = _mm_load_si128(reinterpret_cast<__m128i*>(Data));\
 	__m128i simdData2 = _mm_load_si128(reinterpret_cast<__m128i*>(other.Data));\
     __m128i simdResult= _mm_add_epi##XX(simdData1, simdData2);\
+	_mm_store_si128(reinterpret_cast<__m128i*>(result.Data), simdResult);\
+	return result;\
+}\
+template<>\
+SIMD_Type_t<int, 128, uint##XX##_t> SIMD_Type_t<int, 128,uint##XX##_t>::operator+(const SIMD_Type_t<int, 128, uint##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 128, uint##XX##_t> result;\
+    if(128 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 128, uint##XX##_t>>())\
+    {\
+        return result;\
+    }\
+	__m128i simdData1 = _mm_load_si128(reinterpret_cast<__m128i*>(Data));\
+	__m128i simdData2 = _mm_load_si128(reinterpret_cast<__m128i*>(other.Data));\
+    __m128i simdResult= _mm_add_epi##XX(simdData1, simdData2);\
+	_mm_store_si128(reinterpret_cast<__m128i*>(result.Data), simdResult);\
+	return result;\
+}
+
+#define CREATE_INT128_OPERATOR_MINUS(XX) \
+template<>\
+SIMD_Type_t<int, 128, int##XX##_t> SIMD_Type_t<int, 128, int##XX##_t>::operator-(const SIMD_Type_t<int, 128, int##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 128, int##XX##_t> result;\
+    if(128 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 128, int##XX##_t>>())\
+    {\
+        return result;\
+    }\
+	__m128i simdData1 = _mm_load_si128(reinterpret_cast<__m128i*>(Data));\
+	__m128i simdData2 = _mm_load_si128(reinterpret_cast<__m128i*>(other.Data));\
+    __m128i simdResult= _mm_sub_epi##XX(simdData1, simdData2);\
+	_mm_store_si128(reinterpret_cast<__m128i*>(result.Data), simdResult);\
+	return result;\
+}\
+template<>\
+SIMD_Type_t<int, 128, uint##XX##_t> SIMD_Type_t<int, 128,uint##XX##_t>::operator-(const SIMD_Type_t<int, 128, uint##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 128, uint##XX##_t> result;\
+    if(128 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 128, uint##XX##_t>>())\
+    {\
+        return result;\
+    }\
+	__m128i simdData1 = _mm_load_si128(reinterpret_cast<__m128i*>(Data));\
+	__m128i simdData2 = _mm_load_si128(reinterpret_cast<__m128i*>(other.Data));\
+    __m128i simdResult= _mm_sub_epi##XX(simdData1, simdData2);\
 	_mm_store_si128(reinterpret_cast<__m128i*>(result.Data), simdResult);\
 	return result;\
 }
@@ -162,6 +210,50 @@ SIMD_Type_t<int, 256, int##XX##_t> SIMD_Type_t<int, 256, int##XX##_t>::operator+
     __m256i simdResult= _mm256_add_epi##XX(simdData1, simdData2);\
 	_mm256_store_si256(reinterpret_cast<__m256i*>(result.Data), simdResult);\
 	return result;\
+}\
+template<>\
+SIMD_Type_t<int, 256, uint##XX##_t> SIMD_Type_t<int, 256, uint##XX##_t>::operator+(const SIMD_Type_t<int, 256, uint##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 256, uint##XX##_t> result;\
+    if(256 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 256, uint##XX##_t>>())\
+    {\
+        return result;\
+    }\
+	__m256i simdData1 = _mm256_load_si256(reinterpret_cast<__m256i*>(Data));\
+	__m256i simdData2 = _mm256_load_si256(reinterpret_cast<__m256i*>(other.Data));\
+    __m256i simdResult= _mm256_add_epi##XX(simdData1, simdData2);\
+	_mm256_store_si256(reinterpret_cast<__m256i*>(result.Data), simdResult);\
+	return result;\
+}
+
+#define CREATE_INT256_OPERATOR_MINUS(XX) \
+template<>\
+SIMD_Type_t<int, 256, int##XX##_t> SIMD_Type_t<int, 256, int##XX##_t>::operator-(const SIMD_Type_t<int, 256, int##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 256, int##XX##_t> result;\
+    if(256 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 256, int##XX##_t>>())\
+    {\
+        return result;\
+    }\
+	__m256i simdData1 = _mm256_load_si256(reinterpret_cast<__m256i*>(Data));\
+	__m256i simdData2 = _mm256_load_si256(reinterpret_cast<__m256i*>(other.Data));\
+    __m256i simdResult= _mm256_sub_epi##XX(simdData1, simdData2);\
+	_mm256_store_si256(reinterpret_cast<__m256i*>(result.Data), simdResult);\
+	return result;\
+}\
+template<>\
+SIMD_Type_t<int, 256, uint##XX##_t> SIMD_Type_t<int, 256, uint##XX##_t>::operator-(const SIMD_Type_t<int, 256, uint##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 256, uint##XX##_t> result;\
+    if(256 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 256, uint##XX##_t>>())\
+    {\
+        return result;\
+    }\
+	__m256i simdData1 = _mm256_load_si256(reinterpret_cast<__m256i*>(Data));\
+	__m256i simdData2 = _mm256_load_si256(reinterpret_cast<__m256i*>(other.Data));\
+    __m256i simdResult= _mm256_sub_epi##XX(simdData1, simdData2);\
+	_mm256_store_si256(reinterpret_cast<__m256i*>(result.Data), simdResult);\
+	return result;\
 }
 
 #define CREATE_INT512_OPERATOR_PLUS(XX) \
@@ -176,6 +268,50 @@ SIMD_Type_t<int, 512, int##XX##_t> SIMD_Type_t<int, 512, int##XX##_t>::operator+
     __m512i simdData1 = _mm512_load_si512(reinterpret_cast<__m512i*>(Data));\
 	__m512i simdData2 = _mm512_load_si512(reinterpret_cast<__m512i*>(other.Data));\
     __m512i simdResult= _mm512_add_epi##XX(simdData1, simdData2);\
+	_mm512_store_si512(reinterpret_cast<__m512i*>(result.Data), simdResult);\
+	return result;\
+}\
+template<>\
+SIMD_Type_t<int, 512, uint##XX##_t> SIMD_Type_t<int, 512, uint##XX##_t>::operator+(const SIMD_Type_t<int, 512, uint##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 512, uint##XX##_t> result;\
+    if(512 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 512, uint##XX##_t>>())\
+    {\
+        return result;\
+    }\
+    __m512i simdData1 = _mm512_load_si512(reinterpret_cast<__m512i*>(Data));\
+	__m512i simdData2 = _mm512_load_si512(reinterpret_cast<__m512i*>(other.Data));\
+    __m512i simdResult= _mm512_add_epi##XX(simdData1, simdData2);\
+	_mm512_store_si512(reinterpret_cast<__m512i*>(result.Data), simdResult);\
+	return result;\
+}
+
+#define CREATE_INT512_OPERATOR_MINUS(XX) \
+template<>\
+SIMD_Type_t<int, 512, int##XX##_t> SIMD_Type_t<int, 512, int##XX##_t>::operator-(const SIMD_Type_t<int, 512, int##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 512, int##XX##_t> result;\
+    if(512 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 512, int##XX##_t>>())\
+    {\
+        return result;\
+    }\
+    __m512i simdData1 = _mm512_load_si512(reinterpret_cast<__m512i*>(Data));\
+	__m512i simdData2 = _mm512_load_si512(reinterpret_cast<__m512i*>(other.Data));\
+    __m512i simdResult= _mm512_sub_epi##XX(simdData1, simdData2);\
+	_mm512_store_si512(reinterpret_cast<__m512i*>(result.Data), simdResult);\
+	return result;\
+}\
+template<>\
+SIMD_Type_t<int, 512, uint##XX##_t> SIMD_Type_t<int, 512, uint##XX##_t>::operator-(const SIMD_Type_t<int, 512, uint##XX##_t>& other) const\
+{\
+	SIMD_Type_t<int, 512, uint##XX##_t> result;\
+    if(512 > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, 512, uint##XX##_t>>())\
+    {\
+        return result;\
+    }\
+    __m512i simdData1 = _mm512_load_si512(reinterpret_cast<__m512i*>(Data));\
+	__m512i simdData2 = _mm512_load_si512(reinterpret_cast<__m512i*>(other.Data));\
+    __m512i simdResult= _mm512_sub_epi##XX(simdData1, simdData2);\
 	_mm512_store_si512(reinterpret_cast<__m512i*>(result.Data), simdResult);\
 	return result;\
 }
@@ -336,20 +472,53 @@ private:
     bool __m128d_available = false;
 };
 
+#if defined (__SSE__)
 GENERATE_SIMD_INT(128);
+
+CREATE_INT128_OPERATOR_PLUS(8);
 CREATE_INT128_OPERATOR_PLUS(16);
 CREATE_INT128_OPERATOR_PLUS(32);
 CREATE_INT128_OPERATOR_PLUS(64);
+CREATE_INT128_OPERATOR_MINUS(8);
+CREATE_INT128_OPERATOR_MINUS(16);
+CREATE_INT128_OPERATOR_MINUS(32);
+CREATE_INT128_OPERATOR_MINUS(64);
+#endif
 
+#if defined(__SSE2__)
 GENERATE_SIMD_INT(256);
+
+CREATE_INT256_OPERATOR_PLUS(8);
 CREATE_INT256_OPERATOR_PLUS(16);
 CREATE_INT256_OPERATOR_PLUS(32);
 CREATE_INT256_OPERATOR_PLUS(64);
+CREATE_INT256_OPERATOR_MINUS(8);
+CREATE_INT256_OPERATOR_MINUS(16);
+CREATE_INT256_OPERATOR_MINUS(32);
+CREATE_INT256_OPERATOR_MINUS(64);
+#endif
+
+#if defined(__AVX512__)
 
 GENERATE_SIMD_INT(512);
+
+CREATE_INT512_OPERATOR_PLUS(8);
 CREATE_INT512_OPERATOR_PLUS(16);
 CREATE_INT512_OPERATOR_PLUS(32);
 CREATE_INT512_OPERATOR_PLUS(64);
+CREATE_INT512_OPERATOR_MINUS(8);
+CREATE_INT512_OPERATOR_MINUS(16);
+CREATE_INT512_OPERATOR_MINUS(32);
+CREATE_INT512_OPERATOR_MINUS(64);
+
+#endif
 
 #undef GENERATE_SIMD
 #undef INTERNAL_SIMD_TYPE_NAME
+#undef CREATE_INT128_OPERATOR_PLUS
+#undef CREATE_INT256_OPERATOR_PLUS
+#undef CREATE_INT512_OPERATOR_PLUS
+#undef CREATE_INT128_OPERATOR_MINUS
+#undef CREATE_INT256_OPERATOR_MINUS
+#undef CREATE_INT512_OPERATOR_MINUS
+#undef GET_CPU_INFO
