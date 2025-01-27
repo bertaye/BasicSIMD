@@ -4,10 +4,54 @@
 #include <iostream>
 #include <stdint.h>
 #include <array>
+#ifdef _WIN32
+#include <malloc.h>
+#elif defined(__linux__)
+#include <stdlib.h>
+#endif
+
+/*
+ posix_memalign() returns zero on success, or one of the error
+       values listed in the next section on failure.  The value of errno
+       is not set.  On Linux (and other systems), posix_memalign() does
+       not modify memptr on failure.  A requirement standardizing this
+       behavior was added in POSIX.1-2008 TC2.
+*/
+static int allocate_aligned(void*& ptr, size_t size, size_t alignment)
+{
+#ifdef _WIN32
+    errno_t err;
+    ptr = NULL;
+    ptr = _aligned_malloc(size, alignment);
+    if (ptr == NULL)
+    {
+        _get_errno(&err);
+        return (int)err;
+    }
+    return 0;
+#elif defined(__linux__)
+    int ret = posix_memalign(&ptr, alignment, size);
+    if (ret)
+    {
+        ptr = nullptr;
+    }
+    return ret;
+#endif
+    return -1;
+}
+
+static void free_aligned(void*& ptr)
+{
+#ifdef _WIN32
+	_aligned_free(ptr);
+#elif defined(__linux__)
+	free(ptr);
+#endif
+}
+
 
 template<typename T, int Size = 0, typename T_ElementType = int32_t>
 struct SIMD_Type_t : std::false_type {};
-
 
 #define GENERATE_SIMD_INT(XXX)\
 template<typename T_ElementType>\
@@ -15,14 +59,12 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
 {\
     SIMD_Type_t() :Data(nullptr)\
     {\
-        if (Size == 256)\
-        {\
-            /*TODO: Fix for 0 variadic arguments*/\
-            alignas(32) T_ElementType data[SizeBytes / sizeof(T_ElementType)] = {};\
-            __m256i* simdData = new __m256i;\
-            *simdData = _mm256_loadu_epi32(reinterpret_cast<__m256i*>(data));\
-            Data = reinterpret_cast<void*>(simdData);\
-        }\
+		if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, XXX>>())\
+		{\
+			return;\
+		}\
+        int success = allocate_aligned(Data, SizeBytes, XXX/8);\
+        std::cout<<"Allocation status: "<<success<<std::endl;\
     }\
     template<typename ...Args,\
                     IsElementAnyOfInts<T_ElementType> = 0, \
@@ -35,15 +77,14 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
         {\
             return;\
         }\
-        \
-        if (Size == 256)\
+        alignas(XXX / 8) T_ElementType data[SizeBytes / sizeof(T_ElementType)] = { args... };\
+        int success = allocate_aligned(Data, SizeBytes, XXX / 8);\
+        if (success == 0)\
         {\
-            /*TODO: Fix for 0 variadic arguments*/\
-            alignas(32) T_ElementType data[SizeBytes / sizeof(T_ElementType)] = { args... };\
-            __m256i* simdData = new __m256i;\
-            *simdData = _mm256_loadu_epi32(reinterpret_cast<__m256i*>(data));\
-            Data = reinterpret_cast<void*>(simdData);\
+            /*Means allocation was successful.*/\
+            std::copy(data, data + SizeBytes / sizeof(T_ElementType), reinterpret_cast<T_ElementType*>(Data));\
         }\
+        std::cout << "Allocation status: " << success << std::endl;\
     }\
     /* Move constructor */ \
     SIMD_Type_t(SIMD_Type_t&& other) noexcept : Data(other.Data) { \
@@ -60,14 +101,14 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
     /* Move assignment operator */ \
     SIMD_Type_t& operator=(SIMD_Type_t&& other) noexcept { \
         if (this != &other) { \
-            /*delete[] Data; How to remove Data??? */ \
+            free_aligned(Data); \
             Data = other.Data; \
             other.Data = nullptr; \
         } \
         return *this; \
     } \
     explicit operator bool() noexcept { \
-        return Data == nullptr; \
+        return Data != nullptr; \
     } \
     using Type = int;\
     static constexpr unsigned int Size = XXX;\
@@ -76,7 +117,7 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
 };\
 namespace SIMD {\
     template<typename ElementType=int32_t>\
-    using int##_##XXX = SIMD_Type_t<int, XXX,ElementType>; }
+    using int##_##XXX = SIMD_Type_t<int, XXX,ElementType>; }\
 
 
 template<typename T>
