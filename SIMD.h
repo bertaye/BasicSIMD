@@ -1,4 +1,3 @@
-#pragma once
 #include <type_traits>
 #include <immintrin.h>
 #include <iostream>
@@ -42,10 +41,12 @@ static int allocate_aligned(void*& ptr, size_t size, size_t alignment)
 
 static void free_aligned(void*& ptr)
 {
+    std::cout << "Free_aligned called inside the real function" << std::endl; \
+
 #ifdef _WIN32
-    _aligned_free(ptr);
+        _aligned_free(ptr);
 #elif defined(__linux__)
-    free(ptr);
+        free(ptr);
 #endif
 }
 
@@ -53,27 +54,38 @@ static void free_aligned(void*& ptr)
 template<typename T, int Size = 0, typename T_ElementType = int32_t>
 struct SIMD_Type_t : std::false_type {};
 
-#define GENERATE_SIMD_INT(XXX) \
+
+//       _        ___       _        _________________
+//      | |      |   \     | |      |_______   _______|
+//      | |      | |\ \    | |              | |
+//      | |      | | \ \   | |              | |
+//      | |      | |  \ \  | |              | |
+//      | |      | |   \ \ | |              | |
+//      | |      | |    \ \| |              | |
+//      | |      | |     \   |              | |
+//      |_|      |_|      \ _|              |_|
+
+
+#define GENERATE_SIMD_INTERNAL_TYPE(TYPE, XXX) \
 template<typename T_ElementType>\
-struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
+struct SIMD_Type_t<TYPE, XXX, T_ElementType> : std::true_type\
 {\
     SIMD_Type_t() :Data(nullptr), IsImported(false)\
     {\
-		if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, XXX, T_ElementType>>())\
+		if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>())\
 		{\
 			return;\
 		}\
         int success = allocate_aligned(Data, SizeBytes, XXX / 8);\
-        std::cout<<"Allocation status: "<<success<<std::endl;\
     }\
     template<typename ...Args,\
-                    IsElementAnyOfInts<T_ElementType> = 0, \
+                    IsElementValid<TYPE, T_ElementType> = 0, \
                     IsAllElementsCompatible<T_ElementType, Args...> = 0, \
                     IsSizeValid< (XXX/8) / sizeof(T_ElementType), Args...> = 0>\
     SIMD_Type_t(Args... args) : Data(nullptr), IsImported(false) \
     {\
         \
-        if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, XXX, T_ElementType>>())\
+        if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>())\
         {\
             return;\
         }\
@@ -88,7 +100,7 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
     SIMD_Type_t(void* data) : Data(nullptr), IsImported(false)\
     {\
         /*This will check for memory alignment*/\
-        if(XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, XXX, T_ElementType>>() || (reinterpret_cast<uintptr_t>(data) & ((XXX/8) - 1)) != 0)\
+        if(XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>() || (reinterpret_cast<uintptr_t>(data) & (Alignment - 1)) != 0)\
         {\
          return;\
         }\
@@ -102,7 +114,6 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
         /*Load SIMD*/\
     } \
     SIMD_Type_t(const SIMD_Type_t& other) noexcept : Data(nullptr), IsImported(false) { \
-        std::cout<<"Copy constructor"<<std::endl;\
         int success = allocate_aligned(Data, SizeBytes, XXX / 8);\
         if (success == 0)\
         {\
@@ -111,7 +122,10 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
     } \
     ~SIMD_Type_t()\
     {\
-        free_aligned(Data);\
+        if(!IsImported)\
+        {\
+            free_aligned(Data);\
+        }\
     }\
     static SIMD_Type_t Import(void* data)\
     {\
@@ -123,13 +137,7 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
     }\
     /* Copy assignment operator */ \
     SIMD_Type_t& operator=(const SIMD_Type_t& other) { \
-        std::cout<<"copy assignment operator"<<std::endl;\
-        if (this != &other && !IsImported) { \
-            Data = other.Data; \ 
-            IsImported = other.IsImported; \        
-        } \
-        else if(this != &other && IsImported)\
-        {\
+        if (this != &other) { \
             std::copy((T_ElementType*)other.Data, (T_ElementType*)other.Data + SizeBytes / sizeof(T_ElementType), (T_ElementType*)Data);\
         }\
         return *this; \
@@ -138,6 +146,14 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
         return Data != nullptr; \
     }\
     \
+    T_ElementType ElementAt(unsigned int index) const\
+	{\
+        if(index >= ElementCount)\
+		{\
+			return 0;\
+		}\
+		return *(reinterpret_cast<T_ElementType*>(Data) + index);\
+	}\
     SIMD_Type_t operator+(const SIMD_Type_t& other) const\
     {\
         return SIMD_Type_t<int, XXX, T_ElementType>();\
@@ -148,18 +164,27 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
     }\
     \
     using Type = int;\
-    static constexpr unsigned int Size = XXX;\
+    static constexpr unsigned int BitWidth = XXX;\
     static constexpr unsigned int SizeBytes = XXX/8;\
+    static constexpr unsigned int Alignment = XXX/8;\
+    static constexpr unsigned int ElementCount = (XXX/8)/sizeof(T_ElementType);\
     void* Data;\
 private:\
     bool IsImported;\
-};\
-namespace SIMD \
-{\
-    template<typename ElementType=int32_t>\
-    using int_##XXX = SIMD_Type_t<int, XXX,ElementType>; \
-}
+};
 
+#define DECLARE_SIMD_USE_TYPE_INT(TYPE, XXX) \
+namespace SIMD \
+ {\
+    template<typename ElementType=int32_t>\
+    using TYPE##_##XXX = SIMD_Type_t<TYPE, XXX, ElementType>; \
+ }
+
+#define DECLARE_SIMD_USE_TYPE(TYPE, XXX) \
+namespace SIMD \
+ {\
+    using TYPE##_##XXX = SIMD_Type_t<TYPE, XXX, TYPE>; \
+ }
 
 
 #define CREATE_INT128_OPERATOR_PLUS(XX) \
@@ -342,6 +367,94 @@ SIMD_Type_t<int, 512, uint##XX##_t> SIMD_Type_t<int, 512, uint##XX##_t>::operato
 	return result;\
 }
 
+//       _________      _              ___________      _____________     _________________
+//      | ________|    | |            |  _______  |     | ________  |    |_______   _______|
+//      | |            | |            | |       | |     | |       | |            | |
+//      | |_______     | |            | |       | |     | |_______| |            | |
+//      |  _______|    | |            | |       | |     |  _______  |            | |
+//      | |            | |            | |       | |     | |       | |            | |
+//      | |            | |            | |       | |     | |       | |            | |
+//      | |            | |________    | |_______| |     | |       | |            | |
+//      |_|            |__________|   |___________|     |_|       |_|            |_|
+
+
+#define CREATE_FLOAT_OPERATOR_PLUS(XXX) \
+template<>\
+SIMD_Type_t<float, XXX, float> SIMD_Type_t<float, XXX, float>::operator+(const SIMD_Type_t<float, XXX, float>& other) const\
+{\
+    SIMD_Type_t<float, XXX, float> result;\
+    if(XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<float, XXX, float>>())\
+    {\
+        return result;\
+    }\
+    __m##XXX simdData1 = _mm##XXX##_load_ps(reinterpret_cast<float*>(Data));\
+    __m##XXX simdData2 = _mm##XXX##_load_ps(reinterpret_cast<float*>(other.Data));\
+    __m##XXX simdResult= _mm##XXX##_add_ps(simdData1, simdData2);\
+    _mm##XXX##_store_ps(reinterpret_cast<float*>(result.Data), simdResult);\
+    return result;\
+}
+
+#define CREATE_FLOAT_OPERATOR_MINUS(XXX) \
+template<>\
+SIMD_Type_t<float, XXX, float> SIMD_Type_t<float, XXX, float>::operator-(const SIMD_Type_t<float, XXX, float>& other) const\
+{\
+    SIMD_Type_t<float, XXX, float> result;\
+    if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<float, XXX, float>>())\
+    {\
+        return result;\
+    }\
+    __m256 simdData1 = _mm256_load_ps(reinterpret_cast<float*>(Data));\
+    __m256 simdData2 = _mm256_load_ps(reinterpret_cast<float*>(other.Data));\
+    __m256 simdResult = _mm256_sub_ps(simdData1, simdData2);\
+    _mm256_store_ps(reinterpret_cast<float*>(result.Data), simdResult);\
+    return result;\
+}
+
+
+//  ________      ______     _        _    ______      _            _________ 
+//  |  ___  \    / ____ \   | |      | |  | ____ \    | |          | ________|                                                                                                   
+//  | |    \ \  | /    \ |  | |      | |  | |   \ \   | |          | |                                                                                                                                      
+//  | |    | |  | |    | |  | |      | |  | |   / /   | |          | |_______                                                                    
+//  | |    | |  | |    | |  | |      | |  | |  / /    | |          |  _______|                                                                   
+//  | |    | |  | |    | |  | |      | |  | |  \ \    | |          | |                                                                           
+//  | |    | |  | |    | |  | |      | |  | |   \ \   | |          | |                                                                           
+//  | |____/ |  | \____/ |  | \______/ |  | |___/ /   | |________  | |_______                                                                           
+//  |_______/    \______/    \________/   |______/    |__________| |_________|                                                                          
+
+#define CREATE_DOUBLE_OPERATOR_PLUS(XXX)\
+template<>\
+SIMD_Type_t<double, XXX, double> SIMD_Type_t<double, XXX, double>::operator+(const SIMD_Type_t<double, XXX, double>& other) const\
+{\
+    SIMD_Type_t<double, XXX, double> result;\
+    if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<double, XXX, double>>())\
+    {\
+        return result;\
+    }\
+    __m##XXX##d simdData1 = _mm##XXX##_load_pd(reinterpret_cast<double*>(Data));\
+    __m##XXX##d simdData2 = _mm##XXX##_load_pd(reinterpret_cast<double*>(other.Data));\
+    __m##XXX##d simdResult = _mm##XXX##_add_pd(simdData1, simdData2);\
+    _mm##XXX##_store_pd(reinterpret_cast<double*>(result.Data), simdResult);\
+    return result;\
+}
+
+#define CREATE_DOUBLE_OPERATOR_MINUS(XXX)\
+template<>\
+SIMD_Type_t<double, XXX, double> SIMD_Type_t<double, XXX, double>::operator-(const SIMD_Type_t<double, XXX, double>& other) const\
+{\
+    SIMD_Type_t<double, XXX, double> result;\
+    if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<double, XXX, double>>())\
+    {\
+        return result;\
+    }\
+    __m##XXX##d simdData1 = _mm##XXX##_load_pd(reinterpret_cast<double*>(Data));\
+    __m##XXX##d simdData2 = _mm##XXX##_load_pd(reinterpret_cast<double*>(other.Data));\
+    __m##XXX##d simdResult = _mm##XXX##_sub_pd(simdData1, simdData2);\
+    _mm##XXX##_store_pd(reinterpret_cast<double*>(result.Data), simdResult);\
+    return result;\
+}
+
+
+
 template<typename T>
 using IsSIMD_Int = typename std::enable_if<std::is_same<typename T::Type, int>::value, int>::type;
 
@@ -352,10 +465,31 @@ template<typename T>
 using IsSIMD_Double = typename std::enable_if<std::is_same<typename T::Type, double>::value, int>::type;
 
 template<typename T>
-using IsElementAnyOfInts = typename std::enable_if< std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value ||
+struct IsElementAnyOfInts : std::integral_constant<
+    bool,
+    std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value ||
     std::is_same<T, uint16_t>::value || std::is_same<T, int16_t>::value ||
     std::is_same<T, uint32_t>::value || std::is_same<T, int32_t>::value ||
-    std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value, int>::type;
+    std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value> {};
+
+template<typename SIMD_Kind, typename ElementType>
+struct IsElementValid_Impl : std::false_type {};
+
+template<typename ElementType>
+struct IsElementValid_Impl<int, ElementType> : IsElementAnyOfInts<ElementType> {};
+
+template<>
+struct IsElementValid_Impl<float, float> : std::true_type {};
+
+template<>
+struct IsElementValid_Impl<double, double> : std::true_type {};
+
+template<typename SIMD_Kind, typename ElementType>
+using IsElementValid = typename std::enable_if<IsElementValid_Impl<SIMD_Kind, ElementType>::value, int>::type;
+
+
+template<typename Element, typename Target>
+using IsElementAnyOfT = typename std::enable_if<std::is_same<Element, Target>::value, int>::type;
 
 
 // Base case: If no Args are provided, return true
@@ -438,7 +572,7 @@ public:
     template<typename T/*, IsSIMDType<T> = 0*/>
     void PrintSIMDVariable(const T& simdVar)
     {
-        if (T::Size == 256)
+        if (T::BitWidth == 256)
         {
             __m256i* simdData = reinterpret_cast<__m256i*>(simdVar.Data);
             // Store back into an aligned array
@@ -498,8 +632,9 @@ private:
     bool __m128d_available = false;
 };
 
-#if defined (__SSE__)
-GENERATE_SIMD_INT(128);
+#if defined(__SSE__)
+
+GENERATE_SIMD_INTERNAL_TYPE(int, 128);
 
 CREATE_INT128_OPERATOR_PLUS(8);
 CREATE_INT128_OPERATOR_PLUS(16);
@@ -509,10 +644,14 @@ CREATE_INT128_OPERATOR_MINUS(8);
 CREATE_INT128_OPERATOR_MINUS(16);
 CREATE_INT128_OPERATOR_MINUS(32);
 CREATE_INT128_OPERATOR_MINUS(64);
+
+DECLARE_SIMD_USE_TYPE_INT(int, 128);
+
 #endif
 
 #if defined(__SSE2__)
-GENERATE_SIMD_INT(256);
+
+GENERATE_SIMD_INTERNAL_TYPE(int, 256);
 
 CREATE_INT256_OPERATOR_PLUS(8);
 CREATE_INT256_OPERATOR_PLUS(16);
@@ -522,11 +661,35 @@ CREATE_INT256_OPERATOR_MINUS(8);
 CREATE_INT256_OPERATOR_MINUS(16);
 CREATE_INT256_OPERATOR_MINUS(32);
 CREATE_INT256_OPERATOR_MINUS(64);
+
+DECLARE_SIMD_USE_TYPE_INT(int, 256);
+
+#endif
+
+#if defined(__AVX__)
+
+GENERATE_SIMD_INTERNAL_TYPE(float, 256);
+
+CREATE_FLOAT_OPERATOR_PLUS(256);
+CREATE_FLOAT_OPERATOR_MINUS(256);
+
+DECLARE_SIMD_USE_TYPE(float, 256);
+
+
+
+
+GENERATE_SIMD_INTERNAL_TYPE(double, 256);
+
+CREATE_DOUBLE_OPERATOR_PLUS(256);
+CREATE_DOUBLE_OPERATOR_MINUS(256);
+
+DECLARE_SIMD_USE_TYPE(double, 256);
+
 #endif
 
 #if defined(__AVX512__)
 
-GENERATE_SIMD_INT(512);
+GENERATE_SIMD_INTERNAL_TYPE(int, 512);
 
 CREATE_INT512_OPERATOR_PLUS(8);
 CREATE_INT512_OPERATOR_PLUS(16);
@@ -536,6 +699,29 @@ CREATE_INT512_OPERATOR_MINUS(8);
 CREATE_INT512_OPERATOR_MINUS(16);
 CREATE_INT512_OPERATOR_MINUS(32);
 CREATE_INT512_OPERATOR_MINUS(64);
+
+DECLARE_SIMD_USE_TYPE_INT(int, 512);
+
+
+
+GENERATE_SIMD_INTERNAL_TYPE(float, 512);
+
+CREATE_FLOAT_OPERATOR_PLUS(512);
+CREATE_FLOAT_OPERATOR_MINUS(512);
+
+DECLARE_SIMD_USE_TYPE(float, 512);
+
+
+
+
+GENERATE_SIMD_INTERNAL_TYPE(double, 512);
+
+CREATE_DOUBLE_OPERATOR_PLUS(512);
+CREATE_DOUBLE_OPERATOR_MINUS(512);
+
+DECLARE_SIMD_USE_TYPE(double, 512);
+
+
 
 #endif
 
