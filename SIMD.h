@@ -57,7 +57,7 @@ struct SIMD_Type_t : std::false_type {};
 template<typename T_ElementType>\
 struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
 {\
-    SIMD_Type_t() :Data(nullptr)\
+    SIMD_Type_t() :Data(nullptr), IsImported(false)\
     {\
 		if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, XXX, T_ElementType>>())\
 		{\
@@ -70,7 +70,7 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
                     IsElementAnyOfInts<T_ElementType> = 0, \
                     IsAllElementsCompatible<T_ElementType, Args...> = 0, \
                     IsSizeValid< (XXX/8) / sizeof(T_ElementType), Args...> = 0>\
-    SIMD_Type_t(Args... args) : Data(nullptr) \
+    SIMD_Type_t(Args... args) : Data(nullptr), IsImported(false) \
     {\
         \
         if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, XXX, T_ElementType>>())\
@@ -85,29 +85,53 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
         }\
         std::cout << "Allocation status: " << success << std::endl;\
     }\
+    SIMD_Type_t(void* data) : Data(nullptr), IsImported(false)\
+    {\
+        /*This will check for memory alignment*/\
+        if(XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<int, XXX, T_ElementType>>() || (reinterpret_cast<uintptr_t>(data) & ((XXX/8) - 1)) != 0)\
+        {\
+         return;\
+        }\
+        IsImported = true;\
+        Data = data;\
+    }\
     /* Move constructor */ \
-    SIMD_Type_t(SIMD_Type_t&& other) noexcept : Data(other.Data) { \
+    SIMD_Type_t(SIMD_Type_t&& other) noexcept : Data(other.Data), IsImported(other.IsImported) { \
         other.Data = nullptr; \
+        other.IsImported = false;\
         /*Load SIMD*/\
     } \
+    SIMD_Type_t(const SIMD_Type_t& other) noexcept : Data(nullptr), IsImported(false) { \
+        std::cout<<"Copy constructor"<<std::endl;\
+        int success = allocate_aligned(Data, SizeBytes, XXX / 8);\
+        if (success == 0)\
+        {\
+            std::copy(other.Data, other.Data + SizeBytes / sizeof(T_ElementType), reinterpret_cast<T_ElementType*>(Data));\
+        }\
+    } \
+    ~SIMD_Type_t()\
+    {\
+        free_aligned(Data);\
+    }\
+    static SIMD_Type_t Import(void* data)\
+    {\
+        return std::move(SIMD_Type_t(data));\
+    }\
     const T_ElementType *const Get()\
     {\
         return reinterpret_cast<T_ElementType*>(Data);\
     }\
     /* Copy assignment operator */ \
     SIMD_Type_t& operator=(const SIMD_Type_t& other) { \
-        if (this != &other) { \
-            Data = other.Data; \
+        std::cout<<"copy assignment operator"<<std::endl;\
+        if (this != &other && !IsImported) { \
+            Data = other.Data; \ 
+            IsImported = other.IsImported; \        
         } \
-        return *this; \
-    } \
-    /* Move assignment operator */ \
-    SIMD_Type_t& operator=(SIMD_Type_t&& other) noexcept { \
-        if (this != &other) { \
-            free_aligned(Data); \
-            Data = other.Data; \
-            other.Data = nullptr; \
-        } \
+        else if(this != &other && IsImported)\
+        {\
+            std::copy((T_ElementType*)other.Data, (T_ElementType*)other.Data + SizeBytes / sizeof(T_ElementType), (T_ElementType*)Data);\
+        }\
         return *this; \
     } \
     explicit operator bool() noexcept { \
@@ -127,6 +151,8 @@ struct SIMD_Type_t<int, XXX, T_ElementType> : std::true_type\
     static constexpr unsigned int Size = XXX;\
     static constexpr unsigned int SizeBytes = XXX/8;\
     void* Data;\
+private:\
+    bool IsImported;\
 };\
 namespace SIMD \
 {\
