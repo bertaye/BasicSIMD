@@ -1,5 +1,12 @@
-#include <type_traits>
+#ifdef _MSC_VER
+#include <intrin.h>
+#define GET_CPU_INFO(info, x) __cpuidex(reinterpret_cast<int *>(info), x, 0)
+#else
+#include <cpuid.h>
+#define GET_CPU_INFO(info, x) __cpuid_count(x, 0, info[0], info[1], info[2], info[3])
+#endif
 #include <immintrin.h>
+#include <type_traits>
 #include <iostream>
 #include <stdint.h>
 #include <array>
@@ -41,7 +48,6 @@ static int allocate_aligned(void*& ptr, size_t size, size_t alignment)
 
 static void free_aligned(void*& ptr)
 {
-    std::cout << "Free_aligned called inside the real function" << std::endl; \
 
 #ifdef _WIN32
         _aligned_free(ptr);
@@ -95,13 +101,14 @@ struct SIMD_Type_t<TYPE, XXX, T_ElementType> : std::true_type\
         {\
             std::copy(data, data + SizeBytes / sizeof(T_ElementType), reinterpret_cast<T_ElementType*>(Data));\
         }\
-        std::cout << "Allocation status: " << success << std::endl;\
     }\
     SIMD_Type_t(void* data) : Data(nullptr), IsImported(false)\
     {\
         /*This will check for memory alignment*/\
         if(XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>() || (reinterpret_cast<uintptr_t>(data) & (Alignment - 1)) != 0)\
         {\
+        std::cout<<"MaxAvailable Type:"<<SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>()<<std::endl;\
+        std::cout<<"Is Alignment Valid: "<<((reinterpret_cast<uintptr_t>(data) & (Alignment - 1)) == 0)<<std::endl;\
          return;\
         }\
         IsImported = true;\
@@ -161,6 +168,10 @@ struct SIMD_Type_t<TYPE, XXX, T_ElementType> : std::true_type\
     SIMD_Type_t operator-(const SIMD_Type_t& other) const\
     {\
         return SIMD_Type_t<int, XXX, T_ElementType>();\
+    }\
+    T_ElementType& operator[](unsigned int index)\
+    {\
+        return *(reinterpret_cast<T_ElementType*>(Data) + index);\
     }\
     \
     using Type = int;\
@@ -521,13 +532,6 @@ using IsAllElementsCompatible = typename std::enable_if<IsAllElementsCompatible_
 class SIMDManager
 {
 public:
-#ifdef _MSC_VER
-#include <intrin.h>
-#define GET_CPU_INFO(info, x) __cpuidex(reinterpret_cast<int *>(info), x, 0)
-#else
-#include <cpuid.h>
-#define GET_CPU_INFO(info, x) __cpuid_count(x, 0, info[0], info[1], info[2], info[3])
-#endif
     //Singleton.
     SIMDManager()
     {
@@ -541,26 +545,29 @@ public:
         */
         GET_CPU_INFO(cpuInfo, 1);
         __m128_available = cpuInfo[SSE_CPU_IDX] & SSE_FLAG;
-        std::cout << "__m128_available: " << __m128_available << std::endl;
         __m128i_available = cpuInfo[SSE2_CPU_IDX] & SSE2_FLAG;
-        std::cout << "__m128i_available: " << __m128i_available << std::endl;
 
         __m128d_available = cpuInfo[SSE2_CPU_IDX] & SSE2_FLAG;
-        std::cout << "__m128d_available: " << __m128d_available << std::endl;
 
         __m256_available = cpuInfo[AVX_CPU_IDX] & AVX_FLAG;
-        std::cout << "__m256_available: " << __m128_available << std::endl;
         __m256i_available = cpuInfo[AVX_CPU_IDX] & AVX_FLAG;
-        std::cout << "__m256i_available: " << __m256i_available << std::endl;
         __m256d_available = cpuInfo[AVX_CPU_IDX] & AVX_FLAG;
-        std::cout << "__m256d_available: " << __m256d_available << std::endl;
 
         __m512_available = cpuInfo[AVX512_CPU_IDX] & AVX512_FLAG;
-        std::cout << "__m512_available: " << __m512_available << std::endl;
         __m512i_available = cpuInfo[AVX512_CPU_IDX] & AVX512_FLAG;
-        std::cout << "__m512i_available: " << __m512i_available << std::endl;
         __m512d_available = cpuInfo[AVX512_CPU_IDX] & AVX512_FLAG;
-        std::cout << "__m512d_available: " << __m512d_available << std::endl;
+
+        std::cout<<"m128_available: "<<__m128_available<<std::endl;
+        std::cout<<"m128i_available: "<<__m128i_available<<std::endl;
+        std::cout<<"m128d_available: "<<__m128d_available<<std::endl;
+        std::cout<<"m256_available: "<<__m256_available<<std::endl;
+        std::cout<<"m256i_available: "<<__m256i_available<<std::endl;
+        std::cout<<"m256d_available: "<<__m256d_available<<std::endl;
+        std::cout<<"m512_available: "<<__m512_available<<std::endl;
+        std::cout<<"m512i_available: "<<__m512i_available<<std::endl;
+        std::cout<<"m512d_available: "<<__m512d_available<<std::endl;
+        
+
     }
     SIMDManager(SIMDManager const&) = delete;
     void operator=(SIMDManager const&) = delete;
@@ -579,11 +586,6 @@ public:
             alignas(32) int32_t result[8];
             _mm256_store_si256(reinterpret_cast<__m256i*>(result), *simdData);
 
-            // Print the results
-            std::cout << "Processed SIMD data: ";
-            for (int i = 0; i < 8; i++) {
-                std::cout << result[i] << " ";
-            }
             std::cout << std::endl;
         }
     }
@@ -632,7 +634,7 @@ private:
     bool __m128d_available = false;
 };
 
-#if defined(__SSE__)
+#if defined(__SSE2__) || defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
 
 GENERATE_SIMD_INTERNAL_TYPE(int, 128);
 
@@ -647,9 +649,7 @@ CREATE_INT128_OPERATOR_MINUS(64);
 
 DECLARE_SIMD_USE_TYPE_INT(int, 128);
 
-#endif
 
-#if defined(__SSE2__)
 
 GENERATE_SIMD_INTERNAL_TYPE(int, 256);
 
@@ -666,7 +666,7 @@ DECLARE_SIMD_USE_TYPE_INT(int, 256);
 
 #endif
 
-#if defined(__AVX__)
+#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
 
 GENERATE_SIMD_INTERNAL_TYPE(float, 256);
 
@@ -674,8 +674,6 @@ CREATE_FLOAT_OPERATOR_PLUS(256);
 CREATE_FLOAT_OPERATOR_MINUS(256);
 
 DECLARE_SIMD_USE_TYPE(float, 256);
-
-
 
 
 GENERATE_SIMD_INTERNAL_TYPE(double, 256);
@@ -687,7 +685,7 @@ DECLARE_SIMD_USE_TYPE(double, 256);
 
 #endif
 
-#if defined(__AVX512__)
+#if defined(__AVX512F__)
 
 GENERATE_SIMD_INTERNAL_TYPE(int, 512);
 
@@ -703,7 +701,6 @@ CREATE_INT512_OPERATOR_MINUS(64);
 DECLARE_SIMD_USE_TYPE_INT(int, 512);
 
 
-
 GENERATE_SIMD_INTERNAL_TYPE(float, 512);
 
 CREATE_FLOAT_OPERATOR_PLUS(512);
@@ -712,16 +709,12 @@ CREATE_FLOAT_OPERATOR_MINUS(512);
 DECLARE_SIMD_USE_TYPE(float, 512);
 
 
-
-
 GENERATE_SIMD_INTERNAL_TYPE(double, 512);
 
 CREATE_DOUBLE_OPERATOR_PLUS(512);
 CREATE_DOUBLE_OPERATOR_MINUS(512);
 
 DECLARE_SIMD_USE_TYPE(double, 512);
-
-
 
 #endif
 
