@@ -68,23 +68,17 @@ public:
      */
     ~Timer() 
     {
-        if (!stopped_) {
-            stop();
-        }
-        std::cout << message_ << ": " << duration_nanoseconds_ << " nanoseconds" << std::endl;
     }
 
     /**
      * @brief Stops the timer and records the duration.
      */
-    void stop()
+    long long stop()
     {
-        if (!stopped_) {
-            auto end_time_point = std::chrono::high_resolution_clock::now();
-            auto duration = end_time_point - start_time_point_;
-            duration_nanoseconds_ = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-            stopped_ = true;
-        }
+        auto end_time_point = std::chrono::high_resolution_clock::now();
+        auto duration = end_time_point - start_time_point_;
+        duration_nanoseconds_ = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+        return duration_nanoseconds_;
     }
 
     /**
@@ -138,35 +132,12 @@ public:
      */
     static void printComparison(long long duration1, std::string duration1_tag, long long duration2, std::string duration2_tag)
     {
-        std::tuple<long long, double, std::string> comparisonResult = compareDurations(duration1, duration2);
-        long long difference = std::get<0>(comparisonResult);
-        double ratio = std::get<1>(comparisonResult);
-        std::string comparison = std::get<2>(comparisonResult);
+
 
         std::cout << "\nDuration Comparison:" << std::endl;
-        std::cout << "Difference: " << difference << " nanoseconds." << std::endl;
-
-        if (duration2 != 0) {
-            std::cout << "Ratio: " << std::fixed << std::setprecision(2) << ratio << " times." << std::endl;
-        }
-        else {
-            std::cout << "Ratio: Undefined (Second duration is zero)." << std::endl;
-        }
-
-        std::cout << comparison << std::endl;
-
-        // Providing meaningful messages based on the ratio
-        if (duration2 != 0) {
-            if (ratio > 1.0) {
-                std::cout << duration1_tag << " " << ratio << " times slower than the "<< duration2_tag << std::endl;
-            }
-            else if (ratio < 1.0) {
-                std::cout << duration1_tag << " " << (1.0 / ratio) << " times faster than the "<< duration2_tag << std::endl;
-            }
-            else {
-                // ratio == 1.0, already handled in comparison string
-            }
-        }
+        std::cout << "Difference: " << std::abs(duration1 - duration2) << " nanoseconds." << std::endl;
+        long long ratio = (duration2 > duration1 && duration1 !=0) ? duration2/duration1 : (duration1  > duration2 && duration2 != 0 ) ? duration1/duration2 : 0;
+        std::cout << "Ratio: " << ratio << " times." << std::endl;
     }
 
     // Delete copy constructor and copy assignment to prevent copying
@@ -214,73 +185,54 @@ TEST(SIMD_Test, SIMD_Import)
         EXPECT_EQ(test[i], i);
     }
 
-    SIMD::Array<SIMD::int_256<int16_t>, 15000> testArray;
-    std::array<int16_t, testArray.Length * SIMD::int_256<int16_t>::ElementCount> plainArray;
-    for(int i=0; i< testArray.Length; i++)
+    // Replace std::array with std::vector for heap allocation
+SIMD::Array<SIMD::int_256<int16_t>, 15000> testArray;
+std::vector<int16_t> plainArray(testArray.Length * SIMD::int_256<int16_t>::ElementCount);
+
+SIMD::Array<SIMD::int_256<int16_t>, 15000> testArray2;
+std::vector<int16_t> plainArray2(testArray2.Length * SIMD::int_256<int16_t>::ElementCount);
+
+// Initialize testArray and plainArray
+for(int i = 0; i < testArray.Length; i++)
+{
+    for(int j = 0; j < testArray[i].ElementCount; j++)
     {
-        for(int j=0; j< testArray[i].ElementCount; j++)
-        {
-            testArray[i][j] = j;
-            plainArray[i*SIMD::int_256<int16_t>::ElementCount + j] = j;
-        }
+        testArray[i][j] = j;
+        plainArray[i * SIMD::int_256<int16_t>::ElementCount + j] = j;
     }
+}
 
-    SIMD::Array<SIMD::int_256<int16_t>, 15000> testArray2;
-    std::array<int16_t, testArray2.Length * SIMD::int_256<int16_t>::ElementCount> plainArray2;
-    for(int i=0; i< testArray.Length; i++)
+// Initialize testArray2 and plainArray2
+for(int i = 0; i < testArray2.Length; i++)
+{
+    for(int j = 0; j < testArray2[i].ElementCount; j++)
     {
-        for(int j=0; j< testArray2[i].ElementCount; j++)
-        {
-            testArray2[i][j] = j;
-            plainArray2[i*SIMD::int_256<int16_t>::ElementCount + j] = j;
-        }
+        testArray2[i][j] = j;
+        plainArray2[i * SIMD::int_256<int16_t>::ElementCount + j] = j;
     }
+}
 
-    long long durationSIMD = 0;
-    long long durationPlain = 0;
+long long durationSIMD = 0;
+long long durationPlain = 0;
+
+{
+    Timer timer("SIMD Array Addition\t");
+    testArray += testArray2;
+    durationSIMD = timer.stop();
+}
+
+std::cout << "Simd duration: " << durationSIMD << std::endl;
+
+{
+    Timer timer("Plain Array Addition\t");
+    for(int i = 0; i < plainArray.size(); i++)
     {
-        Timer timer("SIMD Array Addition\t");
-        testArray += testArray2;
-        timer.stop();
-        durationSIMD = timer.getDuration();
+        plainArray[i] += plainArray2[i];
     }
+    durationPlain = timer.stop();
+}
 
-
-    {
-        Timer timer("Plain Array Addition\t");
-        for(int i=0; i< plainArray.size(); i++)
-        {
-            plainArray[i] += plainArray2[i];
-        }
-        timer.stop();
-        durationPlain = timer.getDuration();
-    }
-
-    for(int i=0; i< testArray.Length; i++)
-    {
-        for(int j=0; j< testArray2[i].ElementCount; j++)
-        {
-            EXPECT_EQ(testArray[i][j], plainArray[i*SIMD::int_256<int16_t>::ElementCount + j]);
-        }
-    }
-
-    Timer::printComparison(durationSIMD, "SIMD Sum", durationPlain, "Regular Sum");
-
-    // //Print results for both arrays
-    // for(int i=0; i< testArray.Length; i++)
-    // {
-    //     for(int j=0; j< testArray[i].ElementCount; j++)
-    //     {
-    //         std::cout<<"testArray.SIMDElements["<<i<<"]["<<j<<"]:"<<testArray[i][j]<<std::endl;
-    //     }
-    // }
-
-    //     for(int i=0; i< testArray2.Length; i++)
-    // {
-    //     for(int j=0; j< testArray2[i].ElementCount; j++)
-    //     {
-    //         std::cout<<"testArray2.SIMDElements["<<i<<"]["<<j<<"]:"<<testArray2[i][j]<<std::endl;
-    //     }
-    // }
+std::cout << "Plain duration: " << durationPlain << std::endl;
+Timer::printComparison(durationSIMD, "SIMD Sum", durationPlain, "Regular Sum");
 }
 
