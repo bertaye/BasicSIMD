@@ -256,6 +256,14 @@ TEST(SIMD_Test, SIMD_Import)
         durationPlain = timer.getDuration();
     }
 
+    for(int i=0; i< testArray.Length; i++)
+    {
+        for(int j=0; j< testArray2[i].ElementCount; j++)
+        {
+            EXPECT_EQ(testArray[i][j], plainArray[i*SIMD::int_256<int16_t>::ElementCount + j]);
+        }
+    }
+
     Timer::printComparison(durationSIMD, "SIMD Sum", durationPlain, "Regular Sum");
 
     // //Print results for both arrays
