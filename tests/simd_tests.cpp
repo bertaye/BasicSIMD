@@ -2,73 +2,60 @@
 #include <catch2/catch.hpp>
 
 #include "SIMD.h"
-
-TEST_CASE("Addition Operator", "[SIMD]")
+TEST_CASE("Float Multiplication", "[SIMD]")
 {
-	SIMD::int_128<int> test_1(1, 2, 3, 4);
-	SIMD::int_128<int> test_2(5, 6, 7, 8);
-	SIMD::int_128<int> test_3 = test_1 + test_2;
+    // Create float SIMD arrays
+    constexpr int arraySize = 1;
+    SIMD::Array<SIMD::float_256, arraySize> simdArray;
+    SIMD::Array<SIMD::float_256, arraySize> simdArray2;
+    SIMD::Array<SIMD::float_256, arraySize> simdArray_original;
+    
+    // Create plain float arrays for comparison
+    std::vector<float> plainArray(arraySize * SIMD::float_256::ElementCount);
+    std::vector<float> plainArray2(arraySize * SIMD::float_256::ElementCount);
+    std::vector<float> plainArray_original(arraySize * SIMD::float_256::ElementCount);
+    // Initialize with test values
+    for (int i = 0; i < arraySize; i++) {
+        for (int j = 0; j < SIMD::float_256::ElementCount; j++) {
+            float value = static_cast<float>(j + 1) * 0.5f;  // Use 0.5, 1.0, 1.5, etc.
 
-	for (int i = 0; i < test_3.ElementCount; i++)
-	{
-		REQUIRE(test_3[i] == test_1[i] + test_2[i]);
-	}
-}
+            simdArray[i][j] = value;
+            simdArray_original[i][j] = value;
 
-TEST_CASE("Import", "[SIMD]")
-{
-    void* data;
-    int res = allocate_aligned(data, SIMD::int_256<int16_t>::SizeBytes, SIMD::int_256<int16_t>::Alignment);
-    REQUIRE(res == 0);
-    SIMD::int_256<int16_t> test = SIMD::int_256<int16_t>::Import(data);
-
-    for(int i=0; i< test.ElementCount; i++)
-    {
-        *((int16_t*)data + i) = i;
+            plainArray[i * SIMD::float_256::ElementCount + j] = value;
+            plainArray_original[i * SIMD::float_256::ElementCount + j] = value;
+            
+            float value2 = static_cast<float>(j + 2) * 0.25f;  // Use 0.5, 0.75, 1.0, etc.
+            simdArray2[i][j] = value2;
+            plainArray2[i * SIMD::float_256::ElementCount + j] = value2;
+        }
     }
+    
+    // Perform multiplication and benchmark
+    BENCHMARK_ADVANCED("SIMD Float Multiplication")(Catch::Benchmark::Chronometer meter) {
 
-    for(int i=0; i< test.ElementCount; i++)
-    {
-        REQUIRE(test[i] == i);
+        meter.measure( [&simdArray, &simdArray2]() { 
+            simdArray *= simdArray2;
+        });
+        simdArray = simdArray_original; 
+    };
+    BENCHMARK_ADVANCED("Plain Float Multiplication")(Catch::Benchmark::Chronometer meter) {
+        meter.measure( [&plainArray, &plainArray2]() {
+        for (size_t i = 0; i < plainArray.size(); i++) {
+            plainArray[i] *= plainArray2[i];
+        }
+        });
+        for (size_t i = 0; i < plainArray.size(); i++) {
+            plainArray[i] = plainArray_original[i];
+        }
+    };
+    
+    // Verify results
+    for (int i = 0; i < arraySize; i++) {
+        for (int j = 0; j < SIMD::float_256::ElementCount; j++) {
+            float simdResult = simdArray[i][j];
+            float plainResult = plainArray[i * SIMD::float_256::ElementCount + j];
+            REQUIRE(std::abs(simdResult - plainResult) < 1e-6f);
+        }
     }
-
-		// Replace std::array with std::vector for heap allocation
-	SIMD::Array<SIMD::int_256<int16_t>, 15000> testArray;
-	std::vector<int16_t> plainArray(testArray.Length * SIMD::int_256<int16_t>::ElementCount);
-
-	SIMD::Array<SIMD::int_256<int16_t>, 15000> testArray2;
-	std::vector<int16_t> plainArray2(testArray2.Length * SIMD::int_256<int16_t>::ElementCount);
-
-	// Initialize testArray and plainArray
-	for(int i = 0; i < testArray.Length; i++)
-	{
-		for(int j = 0; j < testArray[i].ElementCount; j++)
-		{
-			testArray[i][j] = j;
-			plainArray[i * SIMD::int_256<int16_t>::ElementCount + j] = j;
-		}
-	}
-
-	// Initialize testArray2 and plainArray2
-	for (int i = 0; i < testArray2.Length; i++)
-	{
-		for (int j = 0; j < testArray2[i].ElementCount; j++)
-		{
-			testArray2[i][j] = j;
-			plainArray2[i * SIMD::int_256<int16_t>::ElementCount + j] = j;
-		}
-	}
-
-	BENCHMARK("SIMD Array Addition")
-	{
-		testArray += testArray2;
-	};
-
-	BENCHMARK("Plain Array Addition")
-	{
-		for (int i = 0; i < plainArray.size(); i++)
-		{
-			plainArray[i] += plainArray2[i];
-		}
-	};
 }
