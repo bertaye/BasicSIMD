@@ -2,8 +2,6 @@
 
 A high-performance C++ framework for SIMD (Single Instruction Multiple Data) operations, providing optimized vector math operations for both floating-point and integer data types.
 
-![SIMD Banner](https://user-images.githubusercontent.com/your-username/repository-name/banner.png)
-
 ## Features
 
 - Optimized SIMD operations for different data types:
@@ -63,7 +61,7 @@ Performance improvements comparing SIMD operations vs. standard operations:
 | Subtraction | 0.064 ms | 0.253 ms | 3.95x |
 | Multiplication | 0.064 ms | 0.414 ms | 6.47x |
 
-### Visualization
+### Visual Performance Comparison
 
 ```
 Performance Comparison (Lower is better)
@@ -97,13 +95,34 @@ Int256 Multiplication | SIMD [====                ] 0.064 ms
 -----------------------------------------------------------------
 ```
 
-## Performance Chart
+### Speedup Factor Comparison
 
-![SIMD vs Plain Operations](https://quickchart.io/chart?c={type:'bar',data:{labels:['Float256 Add','Float256 Sub','Float256 Mul','Int128 Add','Int128 Sub','Int128 Mul','Int256 Add','Int256 Sub','Int256 Mul'],datasets:[{label:'SIMD (ms)',backgroundColor:'rgba(54,162,235,0.8)',data:[0.064,0.064,0.063,0.043,0.045,0.042,0.065,0.064,0.064]},{label:'Plain (ms)',backgroundColor:'rgba(255,99,132,0.8)',data:[0.257,0.256,0.269,0.128,0.125,0.124,0.257,0.253,0.414]}]},options:{title:{display:true,text:'SIMD vs Plain Operation Performance (Lower is Better)'},scales:{yAxes:[{ticks:{beginAtZero:true}}]},plugins:{datalabels:{align:'end',anchor:'end',formatter:function(value){return value+'ms'}}}}})
+```
+Speedup Factors (Higher is better)
+-----------------------------------------------------------------
+Int256 Multiplication | [==============================] 6.47x
+Float256 Multiplication | [===================] 4.27x
+Float256 Addition | [===================] 4.01x
+Float256 Subtraction | [==================] 4.00x
+Int256 Addition | [==================] 3.95x
+Int256 Subtraction | [==================] 3.95x
+Int128 Addition | [==============] 2.98x
+Int128 Multiplication | [==============] 2.95x
+Int128 Subtraction | [=============] 2.78x
+-----------------------------------------------------------------
+```
 
-## Speedup Factor Chart
+## Performance Analysis
 
-![Speedup Factors](https://quickchart.io/chart?c={type:'horizontalBar',data:{labels:['Int256 Mul','Float256 Mul','Float256 Add','Int256 Add','Int256 Sub','Float256 Sub','Int128 Add','Int128 Mul','Int128 Sub'],datasets:[{label:'Speedup Factor',backgroundColor:['rgba(255,99,132,0.8)','rgba(255,159,64,0.8)','rgba(255,205,86,0.8)','rgba(75,192,192,0.8)','rgba(54,162,235,0.8)','rgba(153,102,255,0.8)','rgba(201,203,207,0.8)','rgba(255,99,132,0.5)','rgba(255,159,64,0.5)'],data:[6.47,4.27,4.01,3.95,3.95,4.00,2.98,2.95,2.78]}]},options:{title:{display:true,text:'SIMD Speedup Factors (Higher is Better)'},plugins:{datalabels:{align:'end',anchor:'end',formatter:function(value){return value+'x'}}}}})
+The benchmark results demonstrate significant performance improvements when using SIMD operations compared to standard operations:
+
+1. **Int256 Multiplication**: Shows the highest performance gain with a **6.47x speedup**, making it the most optimized operation.
+
+2. **Float256 Operations**: Consistently show approximately **4x speedup** across addition, subtraction, and multiplication operations.
+
+3. **Int128 Operations**: Show nearly **3x speedup** for all operations, which is still substantial but less than the wider 256-bit variants.
+
+These results clearly demonstrate that SIMD operations provide significant performance benefits, especially for wider data types and multiplication operations.
 
 ## System Information
 
