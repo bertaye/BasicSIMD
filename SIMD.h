@@ -25,223 +25,556 @@
        not modify memptr on failure.  A requirement standardizing this
        behavior was added in POSIX.1-2008 TC2.
 */
-static int allocate_aligned(void*& ptr, size_t size, size_t alignment)
-{
-#ifdef _WIN32
-    errno_t err;
-    ptr = NULL;
-    ptr = _aligned_malloc(size, alignment);
 
-    if (ptr == NULL)
-    {
-        _get_errno(&err);
-        return (int)err;
-    }
-    return 0;
-#elif defined(__linux__)
-    int ret = posix_memalign(&ptr, alignment, size);
-    if (ret)
-    {
-        ptr = nullptr;
-    }
-    return ret;
-#endif
-    return -1;
-}
-
-static void free_aligned(void*& ptr)
+namespace AlignedMemory
 {
 
-#ifdef _WIN32
-        _aligned_free(ptr);
-#elif defined(__linux__)
-        free(ptr);
-#endif
+template<typename T>
+class AlignedDeleter {
+public:
+    explicit AlignedDeleter(size_t alignment = 32) : alignment_(alignment) {}
+    
+    void operator()(T* ptr) const {
+        #ifdef _WIN32
+            _aligned_free(ptr);
+        #else
+            free(ptr);
+        #endif
+    }
+    
+private:
+    size_t alignment_;
+};
+
+template<typename T>
+class AlignedAllocator {
+public:
+    using pointer = T*;
+    using size_type = std::size_t;
+    
+    explicit AlignedAllocator(size_t alignment = 32) : alignment_(alignment) {}
+    
+    pointer allocate(size_type n) {
+        #ifdef _WIN32
+            data = _aligned_malloc(n * sizeof(T), alignment_);
+        #else
+            data = aligned_alloc(alignment_, n * sizeof(T));
+        #endif
+        
+        if (!data) throw std::bad_alloc();
+        return static_cast<pointer>(data);
+    }
+    void* get() const {
+        return data;
+    }
+private:
+    void* data;
+    size_t alignment_;
+};
+
+template<typename T>
+using AlignedPtr = std::unique_ptr<T, AlignedDeleter<T>>;
+
+template<typename T>
+AlignedPtr<T> make_aligned(size_t size, size_t alignment = 32) {
+    AlignedAllocator<T> allocator(alignment);
+    AlignedDeleter<T> deleter(alignment);
+    return AlignedPtr<T>(allocator.allocate(size), deleter);
 }
 
+}
 
-template<typename T, int Size = 0, typename T_ElementType = int32_t>
-struct SIMD_Type_t : std::false_type {};
+#ifdef _MSC_VER
+    #include <intrin.h>
+#elif defined(__GNUC__) || defined(__clang__)
+    #include <cpuid.h>
+    #include <x86intrin.h>
+#endif
+
+enum class InstructionSet {
+    NONE = 0,
+    SSE = 1,
+    SSE2 = 2,  // Added SSE2
+    AVX = 3,   // Updated ordinal values
+    AVX2 = 4,  // Updated ordinal values
+    AVX512 = 5 // Updated ordinal values
+};
+
+class CPUFeatures {
+private:
+    static bool initialized_;
+    static bool has_sse_;
+    static bool has_sse2_;
+    static bool has_avx_;
+    static bool has_avx2_;
+    static bool has_avx512f_;
 
 
-//       _        ___       _        _________________
-//      | |      |   \     | |      |_______   _______|
-//      | |      | |\ \    | |              | |
-//      | |      | | \ \   | |              | |
-//      | |      | |  \ \  | |              | |
-//      | |      | |   \ \ | |              | |
-//      | |      | |    \ \| |              | |
-//      | |      | |     \   |              | |
-//      |_|      |_|      \ _|              |_|
+    static void initialize() {
+        if (initialized_) return;
+
+        #if defined(_MSC_VER) || defined(__GNUC__) || defined(__clang__)
+            std::array<int, 4> cpui{};
+            
+            // Get vendor string and max CPUID level
+            #if defined(_MSC_VER)
+                __cpuid(cpui.data(), 0);
+            #else
+                unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+                __get_cpuid(0, &eax, &ebx, &ecx, &edx);
+                cpui = {static_cast<int>(eax), static_cast<int>(ebx), 
+                        static_cast<int>(ecx), static_cast<int>(edx)};
+            #endif
+            
+            int max_std_id = cpui[0];
+            
+            // Check SSE, SSE2 and AVX
+            if (max_std_id >= 1) {
+                #if defined(_MSC_VER)
+                    __cpuid(cpui.data(), 1);
+                #else
+                    __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+                    cpui = {static_cast<int>(eax), static_cast<int>(ebx), 
+                            static_cast<int>(ecx), static_cast<int>(edx)};
+                #endif
+                
+                // Raw CPU feature flags
+                bool cpu_has_sse = (cpui[3] & (1 << 25)) != 0;      // EDX bit 25
+                bool cpu_has_sse2 = (cpui[3] & (1 << 26)) != 0;     // EDX bit 26
+                bool cpu_has_avx = (cpui[2] & (1 << 28)) != 0;      // ECX bit 28
+                bool cpu_uses_xsave = (cpui[2] & (1 << 27)) != 0;   // ECX bit 27
+                
+                // Safely assign SSE/SSE2 flags (these don't need OS support)
+                has_sse_ = cpu_has_sse;
+                has_sse2_ = cpu_has_sse2;
+                
+                // For AVX and beyond, we need to check OS support via XCR0
+                if (cpu_has_avx && cpu_uses_xsave) {
+                    // Get XCR0 register to check OS support for YMM/ZMM state saving
+                    unsigned long long xcrFeatureMask = 0;
+                    try {
+                        #if defined(_MSC_VER)
+                            xcrFeatureMask = _xgetbv(0);
+                        #elif defined(__GNUC__) || defined(__clang__)
+                            unsigned int eax_xcr = 0, edx_xcr = 0;
+                            __asm__ __volatile__("xgetbv" : "=a"(eax_xcr), "=d"(edx_xcr) : "c"(0));
+                            xcrFeatureMask = ((unsigned long long)edx_xcr << 32) | eax_xcr;
+                        #endif
+                        
+                        // Check bits 1 and 2 for SSE and AVX state saving (XMM and YMM registers)
+                        // XCR0[2:1] = '11b' (XMM and YMM are enabled by OS)
+                        bool avxSupportedByOS = (xcrFeatureMask & 0x6) == 0x6;
+                        
+                        has_avx_ = cpu_has_avx && avxSupportedByOS;
+                        
+                        // Check AVX2 and AVX-512
+                        if (max_std_id >= 7) {
+                            #if defined(_MSC_VER)
+                                __cpuidex(cpui.data(), 7, 0);
+                            #else
+                                __cpuid_count(7, 0, eax, ebx, ecx, edx);
+                                cpui = {static_cast<int>(eax), static_cast<int>(ebx), 
+                                        static_cast<int>(ecx), static_cast<int>(edx)};
+                            #endif
+                            
+                            bool cpu_has_avx2 = (cpui[1] & (1 << 5)) != 0;         // EBX bit 5
+                            bool cpu_has_avx512f = (cpui[1] & (1 << 16)) != 0;     // EBX bit 16
+                            
+                            has_avx2_ = cpu_has_avx2 && avxSupportedByOS;
+                            
+                            // For AVX-512, additionally check bits 7:5 of XCR0 for ZMM state
+                            // XCR0[7:5] = '111b' (ZMM 0-15, ZMM 16-31 and mask registers)
+                            bool avx512SupportedByOS = avxSupportedByOS && 
+                                                     ((xcrFeatureMask & 0xE0) == 0xE0);
+                            
+                            has_avx512f_ = cpu_has_avx512f && avx512SupportedByOS;
+                        }
+                    } catch (...) {
+                        has_avx_ = false;
+                        has_avx2_ = false;
+                        has_avx512f_ = false;
+                    }
+                } else {
+                    has_avx_ = false;
+                    has_avx2_ = false;
+                    has_avx512f_ = false;
+                }
+            }
+        #else
+            has_sse_ = false;
+            has_sse2_ = false;
+            has_avx_ = false;
+            has_avx2_ = false;
+            has_avx512f_ = false;
+        #endif
+
+        initialized_ = true;
+        
+    }
+
+public:
+    static bool hasSSE() {
+        if (!initialized_) initialize();
+        return has_sse_;
+    }
+
+    static bool hasSSE2() {
+        if (!initialized_) initialize();
+        return has_sse2_;
+    }
+
+    static bool hasAVX() {
+        if (!initialized_) initialize();
+        return has_avx_;
+    }
+
+    static bool hasAVX2() {
+        if (!initialized_) initialize();
+        return has_avx2_;
+    }
+
+    static bool hasAVX512() {
+        if (!initialized_) initialize();
+        return has_avx512f_;
+    }
+
+    template<InstructionSet T>
+    static typename std::enable_if<T == InstructionSet::NONE, bool>::type 
+    supportsInstructionSet() {
+        return true;  // NONE is always supported
+    }
+
+    template<InstructionSet T>
+    static typename std::enable_if<T == InstructionSet::SSE, bool>::type
+    supportsInstructionSet() {
+        return hasSSE();
+    }
+
+    template<InstructionSet T>
+    static typename std::enable_if<T == InstructionSet::SSE2, bool>::type
+    supportsInstructionSet() {
+        return hasSSE2();
+    }
+
+    template<InstructionSet T>
+    static typename std::enable_if<T == InstructionSet::AVX, bool>::type
+    supportsInstructionSet() {
+        return hasAVX();
+    }
+
+    template<InstructionSet T>
+    static typename std::enable_if<T == InstructionSet::AVX2, bool>::type
+    supportsInstructionSet() {
+        return hasAVX2();
+    }
+
+    template<InstructionSet T>
+    static typename std::enable_if<T == InstructionSet::AVX512, bool>::type
+    supportsInstructionSet() {
+        return hasAVX512();
+    }
+
+    // New function to print all supported instruction sets
+    static void printSupportedInstructionSets() {
+        if (!initialized_) initialize();
+        
+        std::cout << "Supported SIMD Instruction Sets:" << std::endl;
+        std::cout << "-------------------------------" << std::endl;
+        std::cout << "SSE:    " << (has_sse_ ? "Yes" : "No") << std::endl;
+        std::cout << "SSE2:   " << (has_sse2_ ? "Yes" : "No") << std::endl;
+        std::cout << "AVX:    " << (has_avx_ ? "Yes" : "No") << std::endl;
+        std::cout << "AVX2:   " << (has_avx2_ ? "Yes" : "No") << std::endl;
+        std::cout << "AVX512: " << (has_avx512f_ ? "Yes" : "No") << std::endl;
+    }
+};
+
+// Initialize static members
+bool CPUFeatures::initialized_ = false;
+bool CPUFeatures::has_sse_ = false;
+bool CPUFeatures::has_sse2_ = false;  // Initialize SSE2 static member
+bool CPUFeatures::has_avx_ = false;
+bool CPUFeatures::has_avx2_ = false;
+bool CPUFeatures::has_avx512f_ = false;
+
+// Primary template - default is NONE
+template<typename T, size_t BitWidth>
+struct RequiredInstructionSet {
+    static constexpr InstructionSet value = InstructionSet::NONE;
+};
+
+// Macro for specializations
+#define DEFINE_REQUIRED_INSTRUCTION_SET(TYPE, BITS, SET) \
+template<> \
+struct RequiredInstructionSet<TYPE, BITS> { \
+    static constexpr InstructionSet value = ##InstructionSet::SET; \
+    static constexpr const char* name = #SET; \
+};
+
+// Integer types
+DEFINE_REQUIRED_INSTRUCTION_SET(int8_t, 128, SSE)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint8_t, 128, SSE)
+DEFINE_REQUIRED_INSTRUCTION_SET(int16_t, 128, SSE)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint16_t, 128, SSE)
+DEFINE_REQUIRED_INSTRUCTION_SET(int32_t, 128, SSE)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint32_t, 128, SSE)
+DEFINE_REQUIRED_INSTRUCTION_SET(int64_t, 128, SSE2)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint64_t, 128, SSE2)
+
+DEFINE_REQUIRED_INSTRUCTION_SET(int8_t, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint8_t, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(int16_t, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint16_t, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(int32_t, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint32_t, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(int64_t, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint64_t, 256, AVX)
+
+DEFINE_REQUIRED_INSTRUCTION_SET(int8_t, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint8_t, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(int16_t, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint16_t, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(int32_t, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint32_t, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(int64_t, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(uint64_t, 512, AVX512)
+
+// Floating-point types
+DEFINE_REQUIRED_INSTRUCTION_SET(float, 128, SSE)
+DEFINE_REQUIRED_INSTRUCTION_SET(double, 128, SSE2)
+
+DEFINE_REQUIRED_INSTRUCTION_SET(float, 256, AVX)
+DEFINE_REQUIRED_INSTRUCTION_SET(double, 256, AVX)
+
+DEFINE_REQUIRED_INSTRUCTION_SET(float, 512, AVX512)
+DEFINE_REQUIRED_INSTRUCTION_SET(double, 512, AVX512)
+
+#undef DEFINE_REQUIRED_INSTRUCTION_SET
 
 
-#define GENERATE_SIMD_INTERNAL_TYPE(TYPE, XXX) \
-template<typename T_ElementType>\
-struct SIMD_Type_t<TYPE, XXX, T_ElementType> : std::true_type\
-{\
-    SIMD_Type_t() :Data(nullptr), IsImported(false)\
-    {\
-        std::cout<<"Default constructor called"<<std::endl;\
-		if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>())\
-		{\
-			return;\
-		}\
-        int success = allocate_aligned(Data, SizeBytes, XXX / 8);\
-    }\
-    template<typename ...Args,\
-                    IsElementValid<TYPE, T_ElementType> = 0, \
-                    IsAllElementsCompatible<T_ElementType, Args...> = 0, \
-                    IsSizeValid< (XXX/8) / sizeof(T_ElementType), Args...> = 0>\
-    SIMD_Type_t(Args... args) : Data(nullptr), IsImported(false) \
-    {\
-        std::cout::<<"Default constructor with args called"<<std::endl;\
-        if (XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>())\
-        {\
-            return;\
-        }\
-        alignas(XXX / 8) T_ElementType data[SizeBytes / sizeof(T_ElementType)] = { args... };\
-        int success = allocate_aligned(Data, SizeBytes, XXX / 8);\
-        if (success == 0)\
-        {\
-            std::copy(data, data + SizeBytes / sizeof(T_ElementType), reinterpret_cast<T_ElementType*>(Data));\
-        }\
-    }\
-    SIMD_Type_t(void* data) : Data(nullptr), IsImported(false)\
-    {\
-        /*This will check for memory alignment*/\
-        if(XXX > SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>() || (reinterpret_cast<uintptr_t>(data) & (Alignment - 1)) != 0)\
-        {\
-        std::cout<<"MaxAvailable Type:"<<SIMDManager::GetInstance().getTypeMaxAvailable<SIMD_Type_t<TYPE, XXX, T_ElementType>>()<<std::endl;\
-        std::cout<<"Is Alignment Valid: "<<((reinterpret_cast<uintptr_t>(data) & (Alignment - 1)) == 0)<<std::endl;\
-         return;\
-        }\
-        IsImported = true;\
-        Data = data;\
-    }\
-    /* Move constructor */ \
-    SIMD_Type_t(SIMD_Type_t&& other) noexcept : Data(other.Data), IsImported(other.IsImported) { \
-        std::cout<<"Move constructor called"<<std::endl;\
-        other.Data = nullptr; \
-        other.IsImported = false;\
-        /*Load SIMD*/\
-    } \
-    SIMD_Type_t(const SIMD_Type_t& other) noexcept : Data(nullptr), IsImported(false) { \
-        std::cout<<"Copy constructor called"<<std::endl;\
-        int success = allocate_aligned(Data, SizeBytes, XXX / 8);\
-        if (success == 0)\
-        {\
-            std::copy(other.Data, other.Data + SizeBytes / sizeof(T_ElementType), reinterpret_cast<T_ElementType*>(Data));\
-        }\
-    } \
-    ~SIMD_Type_t()\
-    {\
-        if(!IsImported)\
-        {\
-            free_aligned(Data);\
-        }\
-    }\
-    static _SIMD_INL_ SIMD_Type_t Import(void* data)\
-    {\
-        return std::move(SIMD_Type_t(data));\
-    }\
-    const T_ElementType *const Get()\
-    {\
-        return reinterpret_cast<T_ElementType*>(Data);\
-    }\
-    /* Copy assignment operator */ \
-    SIMD_Type_t& operator=(const SIMD_Type_t& other) { \
-        std::cout<<"Using default copy assignment operator"<<std::endl;\
-        if (this != &other && Data && other.Data) { \
-            _mm_store_si128((__m128i*)Data, _mm_load_si128((__m128i*)other.Data)); \
-        }\
+template<typename T>
+using IsSIMD_Int = typename std::enable_if<std::is_same<typename T::Type, int>::value, int>::type;
+
+template<typename T>
+using IsSIMD_Float = typename std::enable_if<std::is_same<typename T::Type, float>::value, int>::type;
+
+template<typename T>
+using IsSIMD_Double = typename std::enable_if<std::is_same<typename T::Type, double>::value, int>::type;
+
+template<typename T>
+struct IsElementAnyOfInts : std::integral_constant<
+    bool,
+    std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value ||
+    std::is_same<T, uint16_t>::value || std::is_same<T, int16_t>::value ||
+    std::is_same<T, uint32_t>::value || std::is_same<T, int32_t>::value ||
+    std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value> {};
+
+template<typename SIMD_Kind, typename ElementType>
+struct IsElementValid_Impl : std::false_type {};
+
+template<typename ElementType>
+struct IsElementValid_Impl<int, ElementType> : IsElementAnyOfInts<ElementType> {};
+
+template<>
+struct IsElementValid_Impl<float, float> : std::true_type {};
+
+template<>
+struct IsElementValid_Impl<double, double> : std::true_type {};
+
+template<typename SIMD_Kind, typename ElementType>
+using IsElementValid = typename std::enable_if<IsElementValid_Impl<SIMD_Kind, ElementType>::value, int>::type;
+
+
+template<typename Element, typename Target>
+using IsElementAnyOfT = typename std::enable_if<std::is_same<Element, Target>::value, int>::type;
+
+
+// Base case: If no Args are provided, return true
+template<typename T_ElementType, typename... Args>
+using IsArrayConstructible = typename std::enable_if<
+    std::is_constructible<std::array<T_ElementType, sizeof...(Args)>, Args...>::value,
+    int
+>::type;
+
+template<int Size, typename... Args>
+using IsSizeValid = typename std::enable_if<(Size >= static_cast<int>(sizeof...(Args))), int>::type;
+
+
+template<typename TypeRequired, typename FirstElementType, typename... Rest>
+struct IsAllElementsCompatible_impl : std::conditional<
+    std::is_convertible<TypeRequired, FirstElementType>::value,
+    IsAllElementsCompatible_impl<TypeRequired, Rest...>,
+    std::false_type>::type {};
+
+template<typename TypeRequired, typename FirstElementType>
+struct IsAllElementsCompatible_impl<TypeRequired, FirstElementType> : std::conditional<
+    std::is_convertible<TypeRequired, FirstElementType>::value,
+    std::true_type,
+    std::false_type>::type {};
+
+template<typename T, typename... Elements>
+using IsAllElementsCompatible = typename std::enable_if<IsAllElementsCompatible_impl<T, Elements...>::value, int>::type;
+
+template<typename ContainerType, int Bits, typename T_ElementType, 
+typename = IsElementValid<ContainerType, T_ElementType>,
+typename = typename std::enable_if<Bits%8 == 0, int>::type >
+struct SIMD_Type_t
+{
+public:
+    using Type = typename ContainerType;
+    using ElementType = typename T_ElementType;
+    static constexpr unsigned int BitWidth = Bits;
+    static constexpr unsigned int SizeBytes = Bits/8;
+    static constexpr unsigned int Alignment = Bits/8;
+    static constexpr unsigned int ElementCount = (Bits/8)/sizeof(T_ElementType);
+    void* Data;
+    AlignedMemory::AlignedPtr<T_ElementType> AlignedData;
+private:
+    bool IsImported;
+
+public:
+    SIMD_Type_t() :Data(nullptr), IsImported(false)
+    {
+		if (!CPUFeatures::supportsInstructionSet<RequiredInstructionSet<ContainerType, Bits>::value>())
+		{
+            std::string errorMessage = "For SIMD Type " + std::string(typeid(ContainerType).name()) + "_" + std::to_string(Bits) + " the required instruction set " + std::string(RequiredInstructionSet<ContainerType, Bits>::name) + " does not supported in this device.";
+            throw std::runtime_error(errorMessage);
+		}
+        AlignedData = std::move(AlignedMemory::make_aligned<T_ElementType>(SizeBytes, Alignment));
+        Data = AlignedData.get();
+    }
+    template<typename ...Args,
+                    IsElementValid<ContainerType, T_ElementType> = 0, 
+                    IsAllElementsCompatible<T_ElementType, Args...> = 0, 
+                    IsSizeValid< SizeBytes / sizeof(T_ElementType), Args...> = 0>
+    SIMD_Type_t(Args... args) : Data(nullptr), IsImported(false) 
+    {
+        if (!CPUFeatures::supportsInstructionSet<RequiredInstructionSet<ContainerType, Bits>::value>())
+        {
+            std::string errorMessage = "For SIMD Type " + std::string(typeid(ContainerType).name()) + "_" + std::to_string(Bits) + " the required instruction set " + std::string(RequiredInstructionSet<ContainerType, Bits>::name) + " does not supported in this device.";
+            throw std::runtime_error(errorMessage);
+        }
+        alignas(Alignment) T_ElementType data[SizeBytes / sizeof(T_ElementType)] = { args... };
+        AlignedData = std::move(AlignedMemory::make_aligned<T_ElementType>(SizeBytes, Alignment));
+        Data = AlignedData.get();
+        std::copy(data, data + SizeBytes / sizeof(T_ElementType), reinterpret_cast<T_ElementType*>(Data));
+    }
+    SIMD_Type_t(void* data) : Data(nullptr)
+    {
+        if(!CPUFeatures::supportsInstructionSet<RequiredInstructionSet<ContainerType, Bits>::value>())
+        {
+            std::string errorMessage = "For SIMD Type " + std::string(typeid(ContainerType).name()) + "_" + std::to_string(Bits) + " the required instruction set " + std::string(RequiredInstructionSet<ContainerType, Bits>::name) + " does not supported in this device.";
+            throw std::runtime_error(errorMessage);
+        }
+        /*This will check for memory alignment*/
+        if((reinterpret_cast<uintptr_t>(data) & (Alignment - 1)) != 0)
+        {
+            throw std::runtime_error("Data is not aligned to the required boundary.");
+        }
+        IsImported = true;
+        Data = data;
+    }
+    /* Move constructor */ 
+    SIMD_Type_t(SIMD_Type_t&& other) noexcept : Data(other.Data), IsImported(other.IsImported) { 
+        other.Data = nullptr; 
+        other.IsImported = false;
+    } 
+    SIMD_Type_t(const SIMD_Type_t& other) noexcept : Data(nullptr), IsImported(false) { 
+        AlignedData = std::move(AlignedMemory::make_aligned<T_ElementType>(SizeBytes, Alignment));
+        Data = AlignedData.get();
+        std::copy(other.Data, other.Data + SizeBytes / sizeof(T_ElementType), reinterpret_cast<T_ElementType*>(Data));
+    } 
+    ~SIMD_Type_t()
+    {
+    }
+    static _SIMD_INL_ SIMD_Type_t Import(void* data)
+    {
+        return std::move(SIMD_Type_t(data));
+    }
+    const T_ElementType *const Get()
+    {
+        return reinterpret_cast<T_ElementType*>(Data);
+    }
+    /* Copy assignment operator */ 
+    SIMD_Type_t& operator=(const SIMD_Type_t& other) { 
+        Data = other.Data;\
         return *this; \
-    } \
-    explicit operator bool() noexcept { \
-        return Data != nullptr; \
-    }\
-    \
-    T_ElementType ElementAt(unsigned int index) const\
-	{\
-        if(index >= ElementCount)\
-		{\
-			return 0;\
-		}\
-		return *(reinterpret_cast<T_ElementType*>(Data) + index);\
-	}\
-    static _SIMD_INL_ SIMD_Type_t Add(const SIMD_Type_t& lhs, const SIMD_Type_t& rhs) {\
-        SIMD_Type_t result;\
-        /* Implementation will be specialized */\
-        return result;\
-    }\
-    static _SIMD_INL_ void AddInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {\
-        /* Implementation will be specialized */\
-    }\
-    static _SIMD_INL_ void AddInplaceRaw(T_ElementType* to, const T_ElementType* from) {\
-        /* Implementation will be specialized */\
-    }\
-    \
-    static _SIMD_INL_ SIMD_Type_t Subtract(const SIMD_Type_t& lhs, const SIMD_Type_t& rhs) {\
-        SIMD_Type_t result;\
-        /* Implementation will be specialized */\
-        return result;\
-    }\
-    static _SIMD_INL_ void SubtractInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {\
-        /* Implementation will be specialized */\
-    }\
-    static _SIMD_INL_ void SubtractInplaceRaw(T_ElementType* to, const T_ElementType* from) {\
-        /* Implementation will be specialized */\
-    }\
-    \
-    static _SIMD_INL_ SIMD_Type_t Multiply(const SIMD_Type_t& lhs, const SIMD_Type_t& rhs) {\
-        SIMD_Type_t result;\
-        /* Implementation will be specialized */\
-        return result;\
-    }\
-    static _SIMD_INL_ void MultiplyInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {\
-        /* Implementation will be specialized */\
-    }\
-    static _SIMD_INL_ void MultiplyInplaceRaw(T_ElementType* to, const T_ElementType* from) {\
-        /* Implementation will be specialized */\
-    }\
-    \
-    _SIMD_INL_ SIMD_Type_t operator+(const SIMD_Type_t& other) const\
-    {\
-        return Add(*this, other);\
-    }\
-    _SIMD_INL_ SIMD_Type_t operator*(const SIMD_Type_t& other) const\
-    {\
-        return Multiply(*this, other);\
-    }\
-    _SIMD_INL_ SIMD_Type_t operator-(const SIMD_Type_t& other) const\
-    {\
-        return Subtract(*this, other);\
-    }\
-    _SIMD_INL_ void operator+=(const SIMD_Type_t& other)\
-    {\
-        AddInplace(*this, other);\
-    }\
-    _SIMD_INL_ void operator*=(const SIMD_Type_t& other)\
-    {\
-        MultiplyInplace(*this, other);\
-    }\
-    void operator-=(const SIMD_Type_t& other)\
-    {\
-        SubtractInplace(*this, other);\
-    }\
-    _SIMD_INL_ T_ElementType& operator[](unsigned int index)\
-    {\
-        return *(reinterpret_cast<T_ElementType*>(Data) + index);\
-    }\
-    \
-    using Type = typename TYPE;\
-    using ElementType = typename T_ElementType;\
-    static constexpr unsigned int BitWidth = XXX;\
-    static constexpr unsigned int SizeBytes = XXX/8;\
-    static constexpr unsigned int Alignment = XXX/8;\
-    static constexpr unsigned int ElementCount = (XXX/8)/sizeof(T_ElementType);\
-    void* Data;\
-private:\
-    bool IsImported;\
+    } 
+    explicit operator bool() noexcept { 
+        return Data != nullptr; 
+    }
+    
+    T_ElementType ElementAt(unsigned int index) const
+	{
+        if(index >= ElementCount)
+		{
+			return 0;
+		}
+		return *(reinterpret_cast<T_ElementType*>(Data) + index);
+	}
+    static _SIMD_INL_ SIMD_Type_t Add(const SIMD_Type_t& a, const SIMD_Type_t& b) {
+        SIMD_Type_t result;
+        /* Implementation will be specialized */
+        return result;
+    }
+    static _SIMD_INL_ void AddInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {
+        /* Implementation will be specialized */
+    }
+    static _SIMD_INL_ void AddInplaceRaw(T_ElementType* to, const T_ElementType* from) {
+        /* Implementation will be specialized */
+    }
+    
+    static _SIMD_INL_ SIMD_Type_t Subtract(const SIMD_Type_t& a, const SIMD_Type_t& b) {
+        SIMD_Type_t result;
+        /* Implementation will be specialized */
+        return result;
+    }
+    static _SIMD_INL_ void SubtractInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {
+        /* Implementation will be specialized */
+    }
+    static _SIMD_INL_ void SubtractInplaceRaw(T_ElementType* to, const T_ElementType* from) {
+        /* Implementation will be specialized */
+    }
+    
+    static _SIMD_INL_ SIMD_Type_t Multiply(const SIMD_Type_t& a, const SIMD_Type_t& b) {
+        SIMD_Type_t result;
+        /* Implementation will be specialized */
+        return result;
+    }
+    static _SIMD_INL_ void MultiplyInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {
+        /* Implementation will be specialized */
+    }
+    static _SIMD_INL_ void MultiplyInplaceRaw(T_ElementType* to, const T_ElementType* from) {
+        /* Implementation will be specialized */
+    }
+    
+    _SIMD_INL_ SIMD_Type_t operator+(const SIMD_Type_t& other) const
+    {
+        return Add(*this, other);
+    }
+    _SIMD_INL_ SIMD_Type_t operator*(const SIMD_Type_t& other) const
+    {
+        return Multiply(*this, other);
+    }
+    _SIMD_INL_ SIMD_Type_t operator-(const SIMD_Type_t& other) const
+    {
+        return Subtract(*this, other);
+    }
+    _SIMD_INL_ void operator+=(const SIMD_Type_t& other)
+    {
+        AddInplace(*this, other);
+    }
+    _SIMD_INL_ void operator*=(const SIMD_Type_t& other)
+    {
+        MultiplyInplace(*this, other);
+    }
+    void operator-=(const SIMD_Type_t& other)
+    {
+        SubtractInplace(*this, other);
+    }
+    _SIMD_INL_ T_ElementType& operator[](unsigned int index)
+    {
+        return *(reinterpret_cast<T_ElementType*>(Data) + index);
+    }
 };
 
 #define DECLARE_SIMD_USE_TYPE_INT(TYPE, XXX) \
@@ -257,41 +590,27 @@ namespace SIMD \
     using TYPE##_##XXX = SIMD_Type_t<TYPE, XXX, TYPE>; \
  }
 
- #define CREATE_INT128_OPERATOR_ASSIGN(XX) \
-template<>\
-_SIMD_INL_ SIMD_Type_t<int, 128, int##XX##_t>& SIMD_Type_t<int, 128, int##XX##_t>::operator=(const SIMD_Type_t<int, 128, int##XX##_t>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
-}\
-template<>\
-_SIMD_INL_ SIMD_Type_t<int, 128, uint##XX##_t>& SIMD_Type_t<int, 128, uint##XX##_t>::operator=(const SIMD_Type_t<int, 128, uint##XX##_t>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
-}
-
 
 #define CREATE_INT128_OPERATOR_PLUS(XX) \
 template<>\
-_SIMD_INL_ SIMD_Type_t<int, 128, int##XX##_t> SIMD_Type_t<int, 128, int##XX##_t>::Add(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
-    SIMD_Type_t result;\
+_SIMD_INL_ SIMD_Type_t<int, 128, int##XX##_t> SIMD_Type_t<int, 128, int##XX##_t>::Add(const SIMD_Type_t<int, 128, int##XX##_t>& a, const SIMD_Type_t<int, 128, int##XX##_t>& b) {\
+    SIMD_Type_t<int, 128, int##XX##_t> result;\
     _mm_store_si128((__m128i*)result.Data, _mm_add_epi##XX(_mm_load_si128((__m128i*)a.Data), _mm_load_si128((__m128i*)b.Data)));\
     return result;\
 }\
 template<>\
-_SIMD_INL_ SIMD_Type_t<int, 128, uint##XX##_t> SIMD_Type_t<int, 128,uint##XX##_t>::Add(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
-    SIMD_Type_t result;\
+_SIMD_INL_ SIMD_Type_t<int, 128, uint##XX##_t> SIMD_Type_t<int, 128,uint##XX##_t>::Add(const SIMD_Type_t<int, 128,uint##XX##_t>& a, const SIMD_Type_t<int, 128,uint##XX##_t>& b) {\
+    SIMD_Type_t<int, 128, uint##XX##_t> result;\
     _mm_store_si128((__m128i*)result.Data, _mm_add_epi##XX(_mm_load_si128((__m128i*)a.Data), _mm_load_si128((__m128i*)b.Data)));\
     return result;\
 }\
 template<>\
-_SIMD_INL_ void SIMD_Type_t<int, 128, int##XX##_t>::AddInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+_SIMD_INL_ void SIMD_Type_t<int, 128, int##XX##_t>::AddInplace(SIMD_Type_t<int, 128, int##XX##_t>& to, const SIMD_Type_t<int, 128, int##XX##_t>& from)\
 {\
     _mm_store_si128((__m128i*)to.Data, _mm_add_epi##XX(_mm_load_si128((__m128i*)to.Data), _mm_load_si128((__m128i*)from.Data)));\
 }\
 template<>\
-_SIMD_INL_ void SIMD_Type_t<int, 128, uint##XX##_t>::AddInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+_SIMD_INL_ void SIMD_Type_t<int, 128, uint##XX##_t>::AddInplace(SIMD_Type_t<int, 128, uint##XX##_t>& to, const SIMD_Type_t<int, 128, uint##XX##_t>& from)\
 {\
     _mm_store_si128((__m128i*)to.Data, _mm_add_epi##XX(_mm_load_si128((__m128i*)to.Data), _mm_load_si128((__m128i*)from.Data)));\
 }\
@@ -338,20 +657,6 @@ template<>\
 _SIMD_INL_ void SIMD_Type_t<int, 128, uint##XX##_t>::SubtractInplaceRaw(uint##XX##_t* to, const uint##XX##_t* from)\
 {\
     _mm_store_si128((__m128i*)to, _mm_sub_epi##XX(_mm_load_si128((__m128i*)to), _mm_load_si128((__m128i*)from)));\
-}
-
-#define CREATE_INT256_OPERATOR_ASSIGN(XX) \
-template<>\
-_SIMD_INL_ SIMD_Type_t<int, 256, int##XX##_t>& SIMD_Type_t<int, 256, int##XX##_t>::operator=(const SIMD_Type_t<int, 256, int##XX##_t>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
-}\
-template<>\
-_SIMD_INL_ SIMD_Type_t<int, 256, uint##XX##_t>& SIMD_Type_t<int, 256, uint##XX##_t>::operator=(const SIMD_Type_t<int, 256, uint##XX##_t>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
 }
 
 #define CREATE_INT256_OPERATOR_PLUS(XX) \
@@ -422,19 +727,6 @@ _SIMD_INL_ void SIMD_Type_t<int, 256, uint##XX##_t>::SubtractInplaceRaw(uint##XX
     _mm256_store_si256((__m256i*)to, _mm256_sub_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from)));\
 }
 
-#define CREATE_INT512_OPERATOR_ASSIGN(XX) \
-template<>\
-_SIMD_INL_ SIMD_Type_t<int, 512, int##XX##_t>& SIMD_Type_t<int, 512, int##XX##_t>::operator=(const SIMD_Type_t<int, 512, int##XX##_t>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
-}\
-template<>\
-_SIMD_INL_ SIMD_Type_t<int, 512, uint##XX##_t>& SIMD_Type_t<int, 512, uint##XX##_t>::operator=(const SIMD_Type_t<int, 512, uint##XX##_t>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
-}
 
 #define CREATE_INT512_OPERATOR_PLUS(XX) \
 template<>\
@@ -515,14 +807,6 @@ _SIMD_INL_ void SIMD_Type_t<int, 512, uint##XX##_t>::SubtractInplaceRaw(uint##XX
 //      | |            | |________    | |_______| |     | |       | |            | |
 //      |_|            |__________|   |___________|     |_|       |_|            |_|
 
-#define CREATE_FLOAT_OPERATOR_ASSIGN(XXX) \
-template<>\
-_SIMD_INL_ SIMD_Type_t<float, XXX, float>& SIMD_Type_t<float, XXX, float>::operator=(const SIMD_Type_t<float, XXX, float>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
-}
-
 #define CREATE_FLOAT_OPERATOR_PLUS(XXX) \
 template<>\
 _SIMD_INL_ SIMD_Type_t<float, XXX, float> SIMD_Type_t<float, XXX, float>::Add(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
@@ -588,13 +872,6 @@ _SIMD_INL_ void SIMD_Type_t<float, XXX, float>::SubtractInplaceRaw(float* to, co
 //  | |____/ |  | \____/ |  | \______/ |  | |___/ /   | |________  | |_______                                                                           
 //  |_______/    \______/    \________/   |______/    |__________| |_________|                                                                          
 
-#define CREATE_DOUBLE_OPERATOR_ASSIGN(XXX) \
-template<>\
-_SIMD_INL_ SIMD_Type_t<double, XXX, double>& SIMD_Type_t<double, XXX, double>::operator=(const SIMD_Type_t<double, XXX, double>& other) \
-{\
-    Data = other.Data;\
-    return *this; \
-}
 
 #define CREATE_DOUBLE_OPERATOR_PLUS(XXX)\
 template<>\
@@ -632,164 +909,10 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::SubtractInplaceRaw(double* to,
     _mm##XXX##_store_pd((double*)to, _mm##XXX##_sub_pd(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)));\
 }
 
-template<typename T>
-using IsSIMD_Int = typename std::enable_if<std::is_same<typename T::Type, int>::value, int>::type;
-
-template<typename T>
-using IsSIMD_Float = typename std::enable_if<std::is_same<typename T::Type, float>::value, int>::type;
-
-template<typename T>
-using IsSIMD_Double = typename std::enable_if<std::is_same<typename T::Type, double>::value, int>::type;
-
-template<typename T>
-struct IsElementAnyOfInts : std::integral_constant<
-    bool,
-    std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value ||
-    std::is_same<T, uint16_t>::value || std::is_same<T, int16_t>::value ||
-    std::is_same<T, uint32_t>::value || std::is_same<T, int32_t>::value ||
-    std::is_same<T, uint64_t>::value || std::is_same<T, int64_t>::value> {};
-
-template<typename SIMD_Kind, typename ElementType>
-struct IsElementValid_Impl : std::false_type {};
-
-template<typename ElementType>
-struct IsElementValid_Impl<int, ElementType> : IsElementAnyOfInts<ElementType> {};
-
-template<>
-struct IsElementValid_Impl<float, float> : std::true_type {};
-
-template<>
-struct IsElementValid_Impl<double, double> : std::true_type {};
-
-template<typename SIMD_Kind, typename ElementType>
-using IsElementValid = typename std::enable_if<IsElementValid_Impl<SIMD_Kind, ElementType>::value, int>::type;
-
-
-template<typename Element, typename Target>
-using IsElementAnyOfT = typename std::enable_if<std::is_same<Element, Target>::value, int>::type;
-
-
-// Base case: If no Args are provided, return true
-template<typename T_ElementType, typename... Args>
-using IsArrayConstructible = typename std::enable_if<
-    std::is_constructible<std::array<T_ElementType, sizeof...(Args)>, Args...>::value,
-    int
->::type;
-
-template<int Size, typename... Args>
-using IsSizeValid = typename std::enable_if<(Size >= static_cast<int>(sizeof...(Args))), int>::type;
-
-
-template<typename TypeRequired, typename FirstElementType, typename... Rest>
-struct IsAllElementsCompatible_impl : std::conditional<
-    std::is_convertible<TypeRequired, FirstElementType>::value,
-    IsAllElementsCompatible_impl<TypeRequired, Rest...>,
-    std::false_type>::type {};
-
-template<typename TypeRequired, typename FirstElementType>
-struct IsAllElementsCompatible_impl<TypeRequired, FirstElementType> : std::conditional<
-    std::is_convertible<TypeRequired, FirstElementType>::value,
-    std::true_type,
-    std::false_type>::type {};
-
-template<typename T, typename... Elements>
-using IsAllElementsCompatible = typename std::enable_if<IsAllElementsCompatible_impl<T, Elements...>::value, int>::type;
-
-class SIMDManager
-{
-public:
-    //Singleton.
-    SIMDManager()
-    {
-        unsigned int cpuInfo[4];
-        //Get SIMD capabilities
-        /*
-        SSE -> __m128,
-        SSE2 -> __m128i, __m128d,
-        AVX -> __m256, __m256i, __m256d,
-        AVX512 -> __m512, __m512i, __m512d
-        */
-        GET_CPU_INFO(cpuInfo, 1);
-        __m128_available = cpuInfo[SSE_CPU_IDX] & SSE_FLAG;
-        __m128i_available = cpuInfo[SSE2_CPU_IDX] & SSE2_FLAG;
-
-        __m128d_available = cpuInfo[SSE2_CPU_IDX] & SSE2_FLAG;
-
-        __m256_available = cpuInfo[AVX_CPU_IDX] & AVX_FLAG;
-        __m256i_available = cpuInfo[AVX_CPU_IDX] & AVX_FLAG;
-        __m256d_available = cpuInfo[AVX_CPU_IDX] & AVX_FLAG;
-
-        __m512_available = cpuInfo[AVX512_CPU_IDX] & AVX512_FLAG;
-        __m512i_available = cpuInfo[AVX512_CPU_IDX] & AVX512_FLAG;
-        __m512d_available = cpuInfo[AVX512_CPU_IDX] & AVX512_FLAG;
-
-        // Query leaf 7 for AVX2 and AVX-512
-        GET_CPU_INFO(cpuInfo, 7);
-        // AVX2 and AVX-512 in EBX (index 1)
-        __m256i_available = __m256_available && (cpuInfo[1] & (1 << 5));  // AVX2
-        __m512_available = cpuInfo[1] & (1 << 16);  // AVX-512F
-    }
-    SIMDManager(SIMDManager const&) = delete;
-    void operator=(SIMDManager const&) = delete;
-    static SIMDManager& GetInstance() {
-        static SIMDManager instance;
-        return instance;
-    }
-
-    template<typename T, /*IsSIMDType<T> = 0,*/ IsSIMD_Float<T> = 0 >
-    int getTypeMaxAvailable() const
-    {
-        return  (512 * ((int)__m512_available)) +
-            (256 * ((int)(!__m512_available && __m256_available))) +
-            (128 * ((int)(!__m512_available && !__m256_available && __m128_available)));
-    }
-
-    template<typename T,/* IsSIMDType<T> = 0,*/ IsSIMD_Int<T> = 0 >
-    int getTypeMaxAvailable() const
-    {
-        return  (512 * ((int)__m512i_available)) +
-            (256 * ((int)(!__m512i_available && __m256i_available))) +
-            (128 * ((int)(!__m512i_available && !__m256i_available && __m128i_available)));
-    }
-
-    template<typename T,/* IsSIMDType<T> = 0,*/ IsSIMD_Double<T> = 0 >
-    int getTypeMaxAvailable() const
-    {
-        return  (512 * ((int)__m512d_available)) +
-            (256 * ((int)(!__m512d_available && __m256d_available))) +
-            (128 * ((int)(!__m512d_available && !__m256d_available && __m128d_available)));
-    }
-
-private:
-    const int SSE_FLAG = 1 << 25, SSE_CPU_IDX = 3;
-    const int SSE2_FLAG = 1 << 26, SSE2_CPU_IDX = 3;
-    const int AVX_FLAG = 1 << 28, AVX_CPU_IDX = 2;
-    const int AVX2_FLAG = 1 << 5, AVX2_CPU_IDX = 1;
-    const int AVX512_FLAG = 1 << 16, AVX512_CPU_IDX = 1;
-
-    bool __m512_available = false;
-    bool __m512i_available = false;
-    bool __m512d_available = false;
-
-    bool __m256_available = false;
-    bool __m256i_available = false;
-    bool __m256d_available = false;
-
-    bool __m128_available = false;
-    bool __m128i_available = false;
-    bool __m128d_available = false;
-};
-
-
 
 #if defined(__SSE2__) || defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
 
-GENERATE_SIMD_INTERNAL_TYPE(int, 128);
 
-CREATE_INT128_OPERATOR_ASSIGN(8);
-CREATE_INT128_OPERATOR_ASSIGN(16);
-CREATE_INT128_OPERATOR_ASSIGN(32);
-CREATE_INT128_OPERATOR_ASSIGN(64);
 CREATE_INT128_OPERATOR_PLUS(8);
 CREATE_INT128_OPERATOR_PLUS(16);
 CREATE_INT128_OPERATOR_PLUS(32);
@@ -802,13 +925,6 @@ CREATE_INT128_OPERATOR_MINUS(64);
 DECLARE_SIMD_USE_TYPE_INT(int, 128);
 
 
-
-GENERATE_SIMD_INTERNAL_TYPE(int, 256);
-
-CREATE_INT256_OPERATOR_ASSIGN(8);
-CREATE_INT256_OPERATOR_ASSIGN(16);
-CREATE_INT256_OPERATOR_ASSIGN(32);
-CREATE_INT256_OPERATOR_ASSIGN(64);
 CREATE_INT256_OPERATOR_PLUS(8);
 CREATE_INT256_OPERATOR_PLUS(16);
 CREATE_INT256_OPERATOR_PLUS(32);
@@ -824,9 +940,7 @@ DECLARE_SIMD_USE_TYPE_INT(int, 256);
 
 #if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
 
-GENERATE_SIMD_INTERNAL_TYPE(float, 256);
 
-CREATE_FLOAT_OPERATOR_ASSIGN(256);
 CREATE_FLOAT_OPERATOR_PLUS(256);
 CREATE_FLOAT_OPERATOR_MINUS(256);
 CREATE_FLOAT_OPERATOR_MULTIPLY(256);
@@ -834,9 +948,6 @@ CREATE_FLOAT_OPERATOR_MULTIPLY(256);
 DECLARE_SIMD_USE_TYPE(float, 256);
 
 
-GENERATE_SIMD_INTERNAL_TYPE(double, 256);
-
-CREATE_DOUBLE_OPERATOR_ASSIGN(256);
 CREATE_DOUBLE_OPERATOR_PLUS(256);
 CREATE_DOUBLE_OPERATOR_MINUS(256);
 
@@ -846,12 +957,7 @@ DECLARE_SIMD_USE_TYPE(double, 256);
 
 #if defined(__AVX512F__)
 
-GENERATE_SIMD_INTERNAL_TYPE(int, 512);
 
-CREATE_INT512_OPERATOR_ASSIGN(8);
-CREATE_INT512_OPERATOR_ASSIGN(16);
-CREATE_INT512_OPERATOR_ASSIGN(32);
-CREATE_INT512_OPERATOR_ASSIGN(64);
 CREATE_INT512_OPERATOR_PLUS(8);
 CREATE_INT512_OPERATOR_PLUS(16);
 CREATE_INT512_OPERATOR_PLUS(32);
@@ -864,9 +970,7 @@ CREATE_INT512_OPERATOR_MINUS(64);
 DECLARE_SIMD_USE_TYPE_INT(int, 512);
 
 
-GENERATE_SIMD_INTERNAL_TYPE(float, 512);
 
-CREATE_FLOAT_OPERATOR_ASSIGN(512);
 CREATE_FLOAT_OPERATOR_PLUS(512);
 CREATE_FLOAT_OPERATOR_MINUS(512);
 CREATE_FLOAT_OPERATOR_MULTIPLY(512);
@@ -874,9 +978,7 @@ CREATE_FLOAT_OPERATOR_MULTIPLY(512);
 DECLARE_SIMD_USE_TYPE(float, 512);
 
 
-GENERATE_SIMD_INTERNAL_TYPE(double, 512);
 
-CREATE_DOUBLE_OPERATOR_ASSIGN(512);
 CREATE_DOUBLE_OPERATOR_PLUS(512);
 CREATE_DOUBLE_OPERATOR_MINUS(512);
 
@@ -901,28 +1003,21 @@ using IsSIMDType = typename std::enable_if<
 
 namespace SIMD
 {
-template<typename T, unsigned int Length, IsSIMDType<T> = 0>
+template<typename T, unsigned int _Length, IsSIMDType<T> = 0>
 class Array
 {
 public:
     Array() : Data(nullptr)
     {
-        void* vptr = static_cast<void*>(Data);
-        allocate_aligned(vptr, T::SizeBytes * Length, T::Alignment);
-        Data = static_cast<typename T::ElementType*>(vptr);
+        AlignedData = std::move(AlignedMemory::make_aligned<typename T::ElementType>(T::SizeBytes * Length, T::Alignment));
+        Data = static_cast<typename T::ElementType*>(AlignedData.get());
     }
     
     Array(const Array& other) : Data(nullptr)
     {
-        void* vptr = static_cast<void*>(Data);
-        allocate_aligned(vptr, T::SizeBytes * Length, T::Alignment);
-        Data = static_cast<typename T::ElementType*>(vptr);
-        for (unsigned int i = 0; i < Length; i++)
-        {
-            //Use raw data copy to avoid constructor calls
-            memcpy(static_cast<char*>(Data) + i * T::SizeBytes, static_cast<char*>(other.Data) + i * T::SizeBytes, T::SizeBytes);
-        }
-
+        AlignedData = std::move(AlignedMemory::make_aligned<typename T::ElementType>(T::SizeBytes * Length, T::Alignment));
+        Data = static_cast<typename T::ElementType*>(AlignedData.get());
+        memcpy((void*)Data, (void*)other.Data, T::SizeBytes * Length);
     }
 
     Array(Array&& other) noexcept : Data(other.Data)
@@ -975,9 +1070,11 @@ public:
         return Data + index*T::ElementCount;
     }
 
-    static constexpr unsigned int Length = Length;
+    static constexpr unsigned int Length = _Length;
 private:
     typename T::ElementType* Data;
+    AlignedMemory::AlignedPtr<typename T::ElementType> AlignedData;
+    
 };
 }
 

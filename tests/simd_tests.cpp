@@ -4,6 +4,7 @@
 #include "SIMD.h"
 TEST_CASE("Float Multiplication", "[SIMD]")
 {
+    CPUFeatures::printSupportedInstructionSets();
     // Create float SIMD arrays
     constexpr int arraySize = 1;
     SIMD::Array<SIMD::float_256, arraySize> simdArray;
