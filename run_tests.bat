@@ -1,4 +1,3 @@
 cmake -S . -B build
-cmake --build build\
-cmake --build build\
-.\build\Debug\BasicSIMD_Tests.exe
+cmake --build build\ --config Release
+.\build\Release\BasicSIMD_Tests.exe

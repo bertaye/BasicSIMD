@@ -1,62 +1,238 @@
-#define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
-
+#include <gtest/gtest.h>
+#include <benchmark/benchmark.h>
 #include "SIMD.h"
-TEST_CASE("Float Multiplication", "[SIMD]")
-{
-    CPUFeatures::printSupportedInstructionSets();
-    // Create float SIMD arrays
-    constexpr int arraySize = 1;
-    SIMD::Array<SIMD::float_256, arraySize> simdArray;
-    SIMD::Array<SIMD::float_256, arraySize> simdArray2;
-    SIMD::Array<SIMD::float_256, arraySize> simdArray_original;
-    
-    // Create plain float arrays for comparison
-    std::vector<float> plainArray(arraySize * SIMD::float_256::ElementCount);
-    std::vector<float> plainArray2(arraySize * SIMD::float_256::ElementCount);
-    std::vector<float> plainArray_original(arraySize * SIMD::float_256::ElementCount);
-    // Initialize with test values
-    for (int i = 0; i < arraySize; i++) {
-        for (int j = 0; j < SIMD::float_256::ElementCount; j++) {
-            float value = static_cast<float>(j + 1) * 0.5f;  // Use 0.5, 1.0, 1.5, etc.
+#include <vector>
+#include <cmath>
+#include <random>
 
-            simdArray[i][j] = value;
-            simdArray_original[i][j] = value;
+static const uint32_t TEST_ARRAY_SIZE = 10000;
 
-            plainArray[i * SIMD::float_256::ElementCount + j] = value;
-            plainArray_original[i * SIMD::float_256::ElementCount + j] = value;
-            
-            float value2 = static_cast<float>(j + 2) * 0.25f;  // Use 0.5, 0.75, 1.0, etc.
-            simdArray2[i][j] = value2;
-            plainArray2[i * SIMD::float_256::ElementCount + j] = value2;
-        }
-    }
-    
-    // Perform multiplication and benchmark
-    BENCHMARK_ADVANCED("SIMD Float Multiplication")(Catch::Benchmark::Chronometer meter) {
+// Define macros for different types of SIMD tests to reduce boilerplate code
 
-        meter.measure( [&simdArray, &simdArray2]() { 
-            simdArray *= simdArray2;
-        });
-        simdArray = simdArray_original; 
-    };
-    BENCHMARK_ADVANCED("Plain Float Multiplication")(Catch::Benchmark::Chronometer meter) {
-        meter.measure( [&plainArray, &plainArray2]() {
-        for (size_t i = 0; i < plainArray.size(); i++) {
-            plainArray[i] *= plainArray2[i];
-        }
-        });
-        for (size_t i = 0; i < plainArray.size(); i++) {
-            plainArray[i] = plainArray_original[i];
-        }
-    };
-    
-    // Verify results
-    for (int i = 0; i < arraySize; i++) {
-        for (int j = 0; j < SIMD::float_256::ElementCount; j++) {
-            float simdResult = simdArray[i][j];
-            float plainResult = plainArray[i * SIMD::float_256::ElementCount + j];
-            REQUIRE(std::abs(simdResult - plainResult) < 1e-6f);
-        }
-    }
+// Macro for integer SIMD tests
+#define TEST_SIMD_INTEGER_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, VALUE_RANGE) \
+TEST(SIMDTest, SIMD_TYPE##WIDTH##_##OP_NAME) \
+{ \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, TEST_ARRAY_SIZE> simd_array; \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, TEST_ARRAY_SIZE> simd_array_2; \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, TEST_ARRAY_SIZE> simd_array_original; \
+    std::vector<ELEMENT_TYPE> plain_array(TEST_ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
+    std::vector<ELEMENT_TYPE> plain_array_2(TEST_ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
+    std::vector<ELEMENT_TYPE> plain_array_original(TEST_ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
+    \
+    std::mt19937 rng(42); \
+    std::uniform_int_distribution<ELEMENT_TYPE> dist(0, VALUE_RANGE); \
+    for (int i = 0; i < TEST_ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount; j++) { \
+            ELEMENT_TYPE value = dist(rng); \
+            simd_array[i][j] = value; \
+            simd_array_original[i][j] = value; \
+            plain_array[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value; \
+            plain_array_original[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value; \
+            \
+            ELEMENT_TYPE value2 = dist(rng); \
+            simd_array_2[i][j] = value2; \
+            plain_array_2[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value2; \
+        } \
+    } \
+    \
+    /* SIMD operation */ \
+    simd_array OPERATION simd_array_2; \
+    \
+    /* Plain operation */ \
+    for (size_t i = 0; i < plain_array.size(); i++) { \
+        plain_array[i] OPERATION plain_array_2[i]; \
+    } \
+    \
+    /* Compare results */ \
+    for (int i = 0; i < TEST_ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount; j++) { \
+            ELEMENT_TYPE simdResult = simd_array[i][j]; \
+            ELEMENT_TYPE plainResult = plain_array[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j]; \
+            EXPECT_EQ(simdResult, plainResult); \
+        } \
+    } \
+}
+
+// Macro for floating-point SIMD tests
+#define TEST_SIMD_FLOAT_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME) \
+TEST(SIMDTest, SIMD_TYPE##WIDTH##_##OP_NAME) \
+{ \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH, TEST_ARRAY_SIZE> simd_array; \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH, TEST_ARRAY_SIZE> simd_array_2; \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH, TEST_ARRAY_SIZE> simd_array_original; \
+    std::vector<SIMD_TYPE> plain_array(TEST_ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH::ElementCount); \
+    std::vector<SIMD_TYPE> plain_array_2(TEST_ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH::ElementCount); \
+    std::vector<SIMD_TYPE> plain_array_original(TEST_ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH::ElementCount); \
+    \
+    std::mt19937 rng(42); \
+    std::uniform_real_distribution<SIMD_TYPE> dist(0.0f, 1.0f); \
+    for (int i = 0; i < TEST_ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH::ElementCount; j++) { \
+            SIMD_TYPE value = dist(rng); \
+            simd_array[i][j] = value; \
+            simd_array_original[i][j] = value; \
+            plain_array[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j] = value; \
+            plain_array_original[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j] = value; \
+            \
+            SIMD_TYPE value2 = dist(rng); \
+            simd_array_2[i][j] = value2; \
+            plain_array_2[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j] = value2; \
+        } \
+    } \
+    \
+    /* SIMD operation */ \
+    simd_array OPERATION simd_array_2; \
+    \
+    /* Plain operation */ \
+    for (size_t i = 0; i < plain_array.size(); i++) { \
+        plain_array[i] OPERATION plain_array_2[i]; \
+    } \
+    \
+    /* Compare results */ \
+    for (int i = 0; i < TEST_ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH::ElementCount; j++) { \
+            SIMD_TYPE simdResult = simd_array[i][j]; \
+            SIMD_TYPE plainResult = plain_array[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j]; \
+            EXPECT_FLOAT_EQ(simdResult, plainResult); \
+        } \
+    } \
+}
+
+// Benchmark macros to reduce boilerplate code in benchmark functions
+#define BENCHMARK_SIMD_FLOAT_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+static void BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH, ARRAY_SIZE> simd_array; \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH, ARRAY_SIZE> simd_array_2; \
+    std::mt19937 rng(42); \
+    std::uniform_real_distribution<SIMD_TYPE> dist(0.0f, 1.0f); \
+    for (int i = 0; i < ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH::ElementCount; j++) { \
+            SIMD_TYPE value = dist(rng); \
+            simd_array[i][j] = value; \
+            SIMD_TYPE value2 = dist(rng); \
+            simd_array_2[i][j] = value2; \
+        } \
+    } \
+    for (auto _ : state) { \
+        simd_array OPERATION simd_array_2; \
+    } \
+}
+
+#define BENCHMARK_PLAIN_FLOAT_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+static void BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+    std::vector<SIMD_TYPE> plain_array(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH::ElementCount); \
+    std::vector<SIMD_TYPE> plain_array_2(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH::ElementCount); \
+    std::mt19937 rng(42); \
+    std::uniform_real_distribution<SIMD_TYPE> dist(0.0f, 1.0f); \
+    for (int i = 0; i < ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH::ElementCount; j++) { \
+            SIMD_TYPE value = dist(rng); \
+            plain_array[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j] = value; \
+            SIMD_TYPE value2 = dist(rng); \
+            plain_array_2[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j] = value2; \
+        } \
+    } \
+    for (auto _ : state) { \
+        for (size_t i = 0; i < plain_array.size(); i++) { \
+            plain_array[i] OPERATION plain_array_2[i]; \
+        } \
+    } \
+}
+
+// Register benchmark with unit and name
+#define REGISTER_FLOAT_BENCHMARKS(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+BENCHMARK_SIMD_FLOAT_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+BENCHMARK(BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond); \
+BENCHMARK_PLAIN_FLOAT_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond);
+
+// Benchmark macros for integer operations
+#define BENCHMARK_SIMD_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
+static void BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, ARRAY_SIZE> simd_array; \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, ARRAY_SIZE> simd_array_2; \
+    std::mt19937 rng(42); \
+    std::uniform_int_distribution<ELEMENT_TYPE> dist(0, VALUE_RANGE); \
+    for (int i = 0; i < ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount; j++) { \
+            ELEMENT_TYPE value = dist(rng); \
+            simd_array[i][j] = value; \
+            ELEMENT_TYPE value2 = dist(rng); \
+            simd_array_2[i][j] = value2; \
+        } \
+    } \
+    for (auto _ : state) { \
+        simd_array OPERATION simd_array_2; \
+    } \
+}
+
+#define BENCHMARK_PLAIN_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
+static void BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+    std::vector<ELEMENT_TYPE> plain_array(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
+    std::vector<ELEMENT_TYPE> plain_array_2(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
+    std::mt19937 rng(42); \
+    std::uniform_int_distribution<ELEMENT_TYPE> dist(0, VALUE_RANGE); \
+    for (int i = 0; i < ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount; j++) { \
+            ELEMENT_TYPE value = dist(rng); \
+            plain_array[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value; \
+            ELEMENT_TYPE value2 = dist(rng); \
+            plain_array_2[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value2; \
+        } \
+    } \
+    for (auto _ : state) { \
+        for (size_t i = 0; i < plain_array.size(); i++) { \
+            plain_array[i] OPERATION plain_array_2[i]; \
+        } \
+    } \
+}
+
+// Register benchmark with unit and name for integer operations
+#define REGISTER_INT_BENCHMARKS(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
+BENCHMARK_SIMD_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
+BENCHMARK(BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond); \
+BENCHMARK_PLAIN_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
+BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond);
+
+// Use the macros to define all the required tests
+// Integer tests - Int128
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, +=, Addition, 1000)
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, -=, Subtraction, 1000)
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, *=, Multiplication, 50)
+
+// Integer tests - Int256
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, +=, Addition, 1000)
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, -=, Subtraction, 1000)
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, *=, Multiplication, 50)
+
+// Float tests - Float256
+TEST_SIMD_FLOAT_OPERATION(float, 256, +=, Addition)
+TEST_SIMD_FLOAT_OPERATION(float, 256, -=, Subtraction)
+TEST_SIMD_FLOAT_OPERATION(float, 256, *=, Multiplication)
+
+// Define benchmarks using the macros
+// Float benchmarks
+REGISTER_FLOAT_BENCHMARKS(float, 256, +=, Addition, 100000)
+REGISTER_FLOAT_BENCHMARKS(float, 256, -=, Subtraction, 100000)
+REGISTER_FLOAT_BENCHMARKS(float, 256, *=, Multiplication, 100000)
+
+// Int128 benchmarks
+REGISTER_INT_BENCHMARKS(int, int32_t, 128, +=, Addition, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int32_t, 128, -=, Subtraction, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int32_t, 128, *=, Multiplication, 100000, 50)
+
+// Int256 benchmarks
+REGISTER_INT_BENCHMARKS(int, int32_t, 256, +=, Addition, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int32_t, 256, -=, Subtraction, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int32_t, 256, *=, Multiplication, 100000, 50)
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    int test_result = RUN_ALL_TESTS();
+    if (test_result != 0) return test_result;
+    benchmark::Initialize(&argc, argv);
+    if (benchmark::ReportUnrecognizedArguments(argc, argv)) return 1;
+    benchmark::RunSpecifiedBenchmarks();
+    return 0;
 }
