@@ -140,30 +140,19 @@ Tests were run on the following system:
 
 ### Prerequisites
 
-- CMake 3.10 or higher
 - C++ compiler with SIMD support (AVX2 recommended)
-- Git
 
-### Building the Project
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/simd-framework.git
-cd simd-framework
-
-# Build the project
-cmake -S . -B build
-cmake --build build --config Release
-```
-
-### Running Tests
+### Using the Project
 
 ```bash
-# Run all tests and benchmarks
-./build/Release/BasicSIMD_Tests.exe
+This is a header only project, no need for building. 
+#include<SIMD.h>
+Should be sufficient.
 ```
 
-Or use the provided batch script:
+### Running Tests & Benchmarks
+
+Use the provided batch script:
 
 ```bash
 run_tests.bat
