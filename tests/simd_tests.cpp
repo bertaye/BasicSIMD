@@ -149,7 +149,7 @@ BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmar
 
 // Benchmark macros for integer operations
 #define BENCHMARK_SIMD_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
-static void BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+static void BM_SIMD_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
     SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, ARRAY_SIZE> simd_array; \
     SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, ARRAY_SIZE> simd_array_2; \
     std::mt19937 rng(42); \
@@ -168,7 +168,7 @@ static void BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::Sta
 }
 
 #define BENCHMARK_PLAIN_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
-static void BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+static void BM_Plain_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
     std::vector<ELEMENT_TYPE> plain_array(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
     std::vector<ELEMENT_TYPE> plain_array_2(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
     std::mt19937 rng(42); \
@@ -191,9 +191,57 @@ static void BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::St
 // Register benchmark with unit and name for integer operations
 #define REGISTER_INT_BENCHMARKS(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
 BENCHMARK_SIMD_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
-BENCHMARK(BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond); \
+BENCHMARK(BM_SIMD_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond); \
 BENCHMARK_PLAIN_INT_OPERATION(SIMD_TYPE, ELEMENT_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE, VALUE_RANGE) \
-BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond);
+
+// Special benchmark macros for int8_t operations
+#define BENCHMARK_SIMD_INT8_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+static void BM_SIMD_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<int8_t>, ARRAY_SIZE> simd_array; \
+    SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<int8_t>, ARRAY_SIZE> simd_array_2; \
+    std::mt19937 rng(42); \
+    std::uniform_int_distribution<int> dist(0, 127); /* Use int distribution and cast to int8_t */ \
+    for (int i = 0; i < ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount; j++) { \
+            int8_t value = static_cast<int8_t>(dist(rng)); \
+            simd_array[i][j] = value; \
+            int8_t value2 = static_cast<int8_t>(dist(rng)); \
+            simd_array_2[i][j] = value2; \
+        } \
+    } \
+    for (auto _ : state) { \
+        simd_array OPERATION simd_array_2; \
+    } \
+}
+
+#define BENCHMARK_PLAIN_INT8_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+static void BM_Plain_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE(benchmark::State& state) { \
+    std::vector<int8_t> plain_array(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount); \
+    std::vector<int8_t> plain_array_2(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount); \
+    std::mt19937 rng(42); \
+    std::uniform_int_distribution<int> dist(0, 127); /* Use int distribution and cast to int8_t */ \
+    for (int i = 0; i < ARRAY_SIZE; i++) { \
+        for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount; j++) { \
+            int8_t value = static_cast<int8_t>(dist(rng)); \
+            plain_array[i * SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount + j] = value; \
+            int8_t value2 = static_cast<int8_t>(dist(rng)); \
+            plain_array_2[i * SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount + j] = value2; \
+        } \
+    } \
+    for (auto _ : state) { \
+        for (size_t i = 0; i < plain_array.size(); i++) { \
+            plain_array[i] OPERATION plain_array_2[i]; \
+        } \
+    } \
+}
+
+// Register benchmark with unit and name for int8_t operations
+#define REGISTER_INT8_BENCHMARKS(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+BENCHMARK_SIMD_INT8_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+BENCHMARK(BM_SIMD_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond); \
+BENCHMARK_PLAIN_INT8_OPERATION(SIMD_TYPE, WIDTH, OPERATION, OP_NAME, ARRAY_SIZE) \
+BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE)->Unit(benchmark::kMillisecond);
 
 // Use the macros to define all the required tests
 // Integer tests - Int128
@@ -210,22 +258,46 @@ TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, *=, Multiplication, 50)
 TEST_SIMD_FLOAT_OPERATION(float, 256, +=, Addition)
 TEST_SIMD_FLOAT_OPERATION(float, 256, -=, Subtraction)
 TEST_SIMD_FLOAT_OPERATION(float, 256, *=, Multiplication)
+TEST_SIMD_FLOAT_OPERATION(float, 256, /=, Division)
 
 // Define benchmarks using the macros
 // Float benchmarks
 REGISTER_FLOAT_BENCHMARKS(float, 256, +=, Addition, 100000)
 REGISTER_FLOAT_BENCHMARKS(float, 256, -=, Subtraction, 100000)
 REGISTER_FLOAT_BENCHMARKS(float, 256, *=, Multiplication, 100000)
+REGISTER_FLOAT_BENCHMARKS(float, 256, /=, Division, 100000)
+
+// Double benchmarks
+REGISTER_FLOAT_BENCHMARKS(double, 256, +=, Addition, 100000)
+REGISTER_FLOAT_BENCHMARKS(double, 256, -=, Subtraction, 100000)
+REGISTER_FLOAT_BENCHMARKS(double, 256, *=, Multiplication, 100000)
+REGISTER_FLOAT_BENCHMARKS(double, 256, /=, Division, 100000)
 
 // Int128 benchmarks
 REGISTER_INT_BENCHMARKS(int, int32_t, 128, +=, Addition, 100000, 1000)
 REGISTER_INT_BENCHMARKS(int, int32_t, 128, -=, Subtraction, 100000, 1000)
 REGISTER_INT_BENCHMARKS(int, int32_t, 128, *=, Multiplication, 100000, 50)
 
+REGISTER_INT_BENCHMARKS(int, int16_t, 128, +=, Addition, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int16_t, 128, -=, Subtraction, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int16_t, 128, *=, Multiplication, 100000, 50)
+
+// Int128 benchmarks with int8_t
+REGISTER_INT8_BENCHMARKS(int, 128, +=, Addition, 100000)
+REGISTER_INT8_BENCHMARKS(int, 128, -=, Subtraction, 100000)
+REGISTER_INT8_BENCHMARKS(int, 128, *=, Multiplication, 100000)
+
 // Int256 benchmarks
 REGISTER_INT_BENCHMARKS(int, int32_t, 256, +=, Addition, 100000, 1000)
 REGISTER_INT_BENCHMARKS(int, int32_t, 256, -=, Subtraction, 100000, 1000)
 REGISTER_INT_BENCHMARKS(int, int32_t, 256, *=, Multiplication, 100000, 50)
+REGISTER_INT_BENCHMARKS(int, int16_t, 256, +=, Addition, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int16_t, 256, -=, Subtraction, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int16_t, 256, *=, Multiplication, 100000, 50)
+
+// Int256 benchmarks with int8_t
+REGISTER_INT8_BENCHMARKS(int, 256, +=, Addition, 100000)
+REGISTER_INT8_BENCHMARKS(int, 256, -=, Subtraction, 100000)
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);

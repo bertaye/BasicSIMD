@@ -5,12 +5,14 @@ A high-performance C++ framework for SIMD (Single Instruction Multiple Data) ope
 ## Features
 
 - Optimized SIMD operations for different data types:
-  - `Int128` and `Int256` for integer operations
-  - `Float256` for floating-point operations
+  - `Int128`, `Int256` and `Int512` for integer operations (with `int8_t`, `int16_t`, and `int32_t`)
+  - `Float256` and `Float512` for floating-point operations
+  - `Double256` and `Double512` for double-precision operations
 - Standard mathematical operations:
   - Addition
   - Subtraction
   - Multiplication
+  - Division (for floating-point and double-precision)
 - Automatic vectorization with significant performance improvements
 - Comprehensive test suite using Google Test
 - Performance benchmarks using Google Benchmark
@@ -19,7 +21,7 @@ A high-performance C++ framework for SIMD (Single Instruction Multiple Data) ope
 
 ### Unit Tests Status
 
-✅ **All Tests Passed**: 9 out of 9 tests passed successfully
+✅ **All Tests Passed**: 10 out of 10 tests passed successfully
 
 | Test | Status | Time |
 |------|--------|------|
@@ -32,6 +34,7 @@ A high-performance C++ framework for SIMD (Single Instruction Multiple Data) ope
 | float256_Addition | ✓ PASS | 1 ms |
 | float256_Subtraction | ✓ PASS | 1 ms |
 | float256_Multiplication | ✓ PASS | 1 ms |
+| float256_Division | ✓ PASS | 1 ms |
 
 ### Performance Benchmarks
 
@@ -41,92 +44,101 @@ Performance improvements comparing SIMD operations vs. standard operations:
 
 | Operation | SIMD Time | Plain Time | Speedup Factor |
 |-----------|-----------|------------|----------------|
-| Addition | 0.064 ms | 0.257 ms | 4.01x |
-| Subtraction | 0.064 ms | 0.256 ms | 4.00x |
-| Multiplication | 0.063 ms | 0.269 ms | 4.27x |
+| Addition | 0.069 ms | 0.273 ms | 3.96x |
+| Subtraction | 0.066 ms | 0.270 ms | 4.09x |
+| Multiplication | 0.072 ms | 0.292 ms | 4.06x |
+| Division | 0.084 ms | 0.701 ms | 8.35x |
 
-#### Int128 Operations (100,000 elements)
-
-| Operation | SIMD Time | Plain Time | Speedup Factor |
-|-----------|-----------|------------|----------------|
-| Addition | 0.043 ms | 0.128 ms | 2.98x |
-| Subtraction | 0.045 ms | 0.125 ms | 2.78x |
-| Multiplication | 0.042 ms | 0.124 ms | 2.95x |
-
-#### Int256 Operations (100,000 elements)
+#### Double256 Operations (100,000 elements)
 
 | Operation | SIMD Time | Plain Time | Speedup Factor |
 |-----------|-----------|------------|----------------|
-| Addition | 0.065 ms | 0.257 ms | 3.95x |
-| Subtraction | 0.064 ms | 0.253 ms | 3.95x |
-| Multiplication | 0.064 ms | 0.414 ms | 6.47x |
+| Addition | 0.064 ms | 0.146 ms | 2.28x |
+| Subtraction | 0.071 ms | 0.151 ms | 2.13x |
+| Multiplication | 0.077 ms | 0.213 ms | 2.77x |
+| Division | 0.130 ms | 0.464 ms | 3.57x |
 
-### Visual Performance Comparison
+#### Int128 Operations with int32_t (100,000 elements)
 
-```
-Performance Comparison (Lower is better)
------------------------------------------------------------------
-Float256 Addition     | SIMD [====                ] 0.064 ms
-                      | Plain [================    ] 0.257 ms
+| Operation | SIMD Time | Plain Time | Speedup Factor |
+|-----------|-----------|------------|----------------|
+| Addition | 0.051 ms | 0.134 ms | 2.63x |
+| Subtraction | 0.063 ms | 0.140 ms | 2.22x |
+| Multiplication | 0.072 ms | 0.196 ms | 2.72x |
 
-Float256 Subtraction  | SIMD [====                ] 0.064 ms
-                      | Plain [================    ] 0.256 ms
+#### Int128 Operations with int16_t (100,000 elements)
 
-Float256 Multiplication| SIMD [====                ] 0.063 ms
-                      | Plain [=================   ] 0.269 ms
+| Operation | SIMD Time | Plain Time | Speedup Factor |
+|-----------|-----------|------------|----------------|
+| Addition | 0.055 ms | 0.285 ms | 5.18x |
+| Subtraction | 0.046 ms | 0.267 ms | 5.80x |
+| Multiplication | 0.044 ms | 0.444 ms | 10.09x |
 
-Int128 Addition       | SIMD [===                 ] 0.043 ms
-                      | Plain [========            ] 0.128 ms
+#### Int128 Operations with int8_t (100,000 elements)
 
-Int128 Subtraction    | SIMD [===                 ] 0.045 ms
-                      | Plain [========            ] 0.125 ms
+| Operation | SIMD Time | Plain Time | Speedup Factor |
+|-----------|-----------|------------|----------------|
+| Addition | 0.046 ms | 0.517 ms | 11.24x |
+| Subtraction | 0.046 ms | 0.507 ms | 11.02x |
 
-Int128 Multiplication | SIMD [===                 ] 0.042 ms
-                      | Plain [========            ] 0.124 ms
+#### Int256 Operations with int32_t (100,000 elements)
 
-Int256 Addition       | SIMD [====                ] 0.065 ms
-                      | Plain [================    ] 0.257 ms
+| Operation | SIMD Time | Plain Time | Speedup Factor |
+|-----------|-----------|------------|----------------|
+| Addition | 0.070 ms | 0.273 ms | 3.90x |
+| Subtraction | 0.065 ms | 0.277 ms | 4.26x |
+| Multiplication | 0.070 ms | 0.269 ms | 3.84x |
 
-Int256 Subtraction    | SIMD [====                ] 0.064 ms
-                      | Plain [================    ] 0.253 ms
+#### Int256 Operations with int16_t (100,000 elements)
 
-Int256 Multiplication | SIMD [====                ] 0.064 ms
-                      | Plain [==========================] 0.414 ms
------------------------------------------------------------------
-```
+| Operation | SIMD Time | Plain Time | Speedup Factor |
+|-----------|-----------|------------|----------------|
+| Addition | 0.076 ms | 0.622 ms | 8.18x |
+| Subtraction | 0.067 ms | 0.519 ms | 7.75x |
+| Multiplication | 0.064 ms | 0.870 ms | 13.59x |
+
+#### Int256 Operations with int8_t (100,000 elements)
+
+| Operation | SIMD Time | Plain Time | Speedup Factor |
+|-----------|-----------|------------|----------------|
+| Addition | 0.067 ms | 1.02 ms | 15.22x |
+| Subtraction | 0.071 ms | 1.06 ms | 14.93x |
 
 ### Speedup Factor Comparison
 
 ```
 Speedup Factors (Higher is better)
------------------------------------------------------------------
-Int256 Multiplication | [==============================] 6.47x
-Float256 Multiplication | [===================] 4.27x
-Float256 Addition | [===================] 4.01x
-Float256 Subtraction | [==================] 4.00x
-Int256 Addition | [==================] 3.95x
-Int256 Subtraction | [==================] 3.95x
-Int128 Addition | [==============] 2.98x
-Int128 Multiplication | [==============] 2.95x
-Int128 Subtraction | [=============] 2.78x
------------------------------------------------------------------
+-------------------------------------------------------------
+Int256 int8_t Addition       | 🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵⚪ | 15.22x |
+Int256 int8_t Subtraction    | 🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪ | 14.93x |
+Int256 int16_t Multiplication| 🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪⚪ | 13.59x |
+Int128 int8_t Addition       | 🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪ | 11.24x |
+Int128 int8_t Subtraction    | 🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪ | 11.02x |
+Int128 int16_t Multiplication| 🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪ | 10.09x |
+Float256 Division            | 🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪ | 8.35x |
+Int256 int16_t Addition      | 🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪ | 8.18x |
+Int256 int16_t Subtraction   | 🔵🔵🔵🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪ | 7.75x |
+Int128 int16_t Subtraction   | 🔵🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 5.80x |
+Int128 int16_t Addition      | 🔵🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 5.18x |
+Int256 int32_t Subtraction   | 🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 4.26x |
+Float256 Subtraction         | 🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 4.09x |
+Float256 Multiplication      | 🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 4.06x |
+Float256 Addition            | 🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 3.96x |
+Int256 int32_t Addition      | 🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 3.90x |
+Int256 int32_t Multiplication| 🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 3.84x |
+Double256 Division           | 🔵🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 3.57x |
+Double256 Multiplication     | 🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 2.77x |
+Int128 int32_t Multiplication| 🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 2.72x |
+Int128 int32_t Addition      | 🔵🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 2.63x |
+Double256 Addition           | 🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 2.28x |
+Int128 int32_t Subtraction   | 🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 2.22x |
+Double256 Subtraction        | 🔵🔵⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪⚪ | 2.13x |
+-------------------------------------------------------------
 ```
-
-## Performance Analysis
-
-The benchmark results demonstrate significant performance improvements when using SIMD operations compared to standard operations:
-
-1. **Int256 Multiplication**: Shows the highest performance gain with a **6.47x speedup**, making it the most optimized operation.
-
-2. **Float256 Operations**: Consistently show approximately **4x speedup** across addition, subtraction, and multiplication operations.
-
-3. **Int128 Operations**: Show nearly **3x speedup** for all operations, which is still substantial but less than the wider 256-bit variants.
-
-These results clearly demonstrate that SIMD operations provide significant performance benefits, especially for wider data types and multiplication operations.
 
 ## System Information
 
-Tests were run on the following system:
+Tests and benchmarks were run on the following system:
 
 - **CPU**: 16 cores @ 3294 MHz
 - **Cache**:
@@ -134,7 +146,7 @@ Tests were run on the following system:
   - L1 Instruction: 32 KiB (x8)
   - L2 Unified: 512 KiB (x8)
   - L3 Unified: 16384 KiB (x1)
-- **Test Date**: May 5, 2025
+- **Test Date**: May 6, 2025
 
 ## Getting Started
 
@@ -154,8 +166,14 @@ Should be sufficient.
 
 Use the provided batch script:
 
+ #### Windows
 ```bash
 run_tests.bat
+```
+
+#### Linux
+```bash
+run_tests.sh
 ```
 
 ## License
@@ -164,10 +182,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Current state of the project is purely based on the personal needs, any contribution for extending SIMD support is appreciated & welcome.
 
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+The SIMD.h uses macros a lot to eliminate manual work of repetitive coding, but the idea is really simple; defining a macro for a new operator/function as a specialization of base SIMD_Type_t and then using it for different bit widths.

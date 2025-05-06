@@ -1,10 +1,6 @@
 #ifdef _MSC_VER
-#include <intrin.h>
-#define GET_CPU_INFO(info, x) __cpuidex(reinterpret_cast<int *>(info), x, 0)
 #define _SIMD_INL_ __forceinline
 #else
-#include <cpuid.h>
-#define GET_CPU_INFO(info, x) __cpuid_count(x, 0, info[0], info[1], info[2], info[3])
 #define _SIMD_INL_ __attribute__((always_inline))
 #endif
 #include <immintrin.h>
@@ -17,14 +13,6 @@
 #elif defined(__linux__)
 #include <stdlib.h>
 #endif
- 
-/*
- posix_memalign() returns zero on success, or one of the error
-       values listed in the next section on failure.  The value of errno
-       is not set.  On Linux (and other systems), posix_memalign() does
-       not modify memptr on failure.  A requirement standardizing this
-       behavior was added in POSIX.1-2008 TC2.
-*/
 
 namespace AlignedMemory
 {
@@ -286,6 +274,96 @@ public:
         std::cout << "AVX2:   " << (has_avx2_ ? "Yes" : "No") << std::endl;
         std::cout << "AVX512: " << (has_avx512f_ ? "Yes" : "No") << std::endl;
     }
+
+    // New function to print all supported SIMD types
+    static void printSupportedSIMDTypes() {
+        if (!initialized_) initialize();
+        
+        std::cout << "Supported SIMD Types:" << std::endl;
+        std::cout << "-------------------" << std::endl;
+        
+        // Integer SIMD types
+        std::cout << "Integer Types:" << std::endl;
+        
+        // 128-bit types (SSE/SSE2)
+        if (has_sse_) {
+            std::cout << "  SIMD::int_128<int8_t>:   Yes" << std::endl;
+            std::cout << "  SIMD::int_128<uint8_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_128<int16_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_128<uint16_t>: Yes" << std::endl;
+            std::cout << "  SIMD::int_128<int32_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_128<uint32_t>: Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::int_128<*>:        No (requires SSE)" << std::endl;
+        }
+        
+        if (has_sse2_) {
+            std::cout << "  SIMD::int_128<int64_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_128<uint64_t>: Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::int_128<int64_t>:  No (requires SSE2)" << std::endl;
+            std::cout << "  SIMD::int_128<uint64_t>: No (requires SSE2)" << std::endl;
+        }
+        
+        // 256-bit types (AVX/AVX2)
+        if (has_avx2_) {
+            std::cout << "  SIMD::int_256<int8_t>:   Yes" << std::endl;
+            std::cout << "  SIMD::int_256<uint8_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_256<int16_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_256<uint16_t>: Yes" << std::endl;
+            std::cout << "  SIMD::int_256<int32_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_256<uint32_t>: Yes" << std::endl;
+            std::cout << "  SIMD::int_256<int64_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_256<uint64_t>: Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::int_256<*>:        No (requires AVX2)" << std::endl;
+        }
+        
+        // 512-bit types (AVX-512)
+        if (has_avx512f_) {
+            std::cout << "  SIMD::int_512<int8_t>:   Yes" << std::endl;
+            std::cout << "  SIMD::int_512<uint8_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_512<int16_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_512<uint16_t>: Yes" << std::endl;
+            std::cout << "  SIMD::int_512<int32_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_512<uint32_t>: Yes" << std::endl;
+            std::cout << "  SIMD::int_512<int64_t>:  Yes" << std::endl;
+            std::cout << "  SIMD::int_512<uint64_t>: Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::int_512<*>:        No (requires AVX-512)" << std::endl;
+        }
+        
+        // Float SIMD types
+        std::cout << "\nFloat Types:" << std::endl;
+        
+        if (has_avx_) {
+            std::cout << "  SIMD::float_256:         Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::float_256:         No (requires AVX)" << std::endl;
+        }
+        
+        if (has_avx512f_) {
+            std::cout << "  SIMD::float_512:         Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::float_512:         No (requires AVX-512)" << std::endl;
+        }
+        
+        // Double SIMD types
+        std::cout << "\nDouble Types:" << std::endl;
+        
+        if (has_avx_) {
+            std::cout << "  SIMD::double_256:        Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::double_256:        No (requires AVX)" << std::endl;
+        }
+        
+        if (has_avx512f_) {
+            std::cout << "  SIMD::double_512:        Yes" << std::endl;
+        } else {
+            std::cout << "  SIMD::double_512:        No (requires AVX-512)" << std::endl;
+        }
+    }
+
 };
 
 // Initialize static members
@@ -350,6 +428,8 @@ DEFINE_REQUIRED_INSTRUCTION_SET(double, 512, AVX512)
 
 #undef DEFINE_REQUIRED_INSTRUCTION_SET
 
+template<typename T>
+struct AssertFalse : std::false_type {};
 
 template<typename T>
 using IsSIMD_Int = typename std::enable_if<std::is_same<typename T::Type, int>::value, int>::type;
@@ -536,15 +616,22 @@ public:
     }
     
     static _SIMD_INL_ SIMD_Type_t Multiply(const SIMD_Type_t& a, const SIMD_Type_t& b) {
-        SIMD_Type_t result;
-        /* Implementation will be specialized */
-        return result;
+        static_assert(AssertFalse<T_ElementType>::value, "Multiplication is not supported for this type.");
     }
     static _SIMD_INL_ void MultiplyInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {
-        /* Implementation will be specialized */
+        static_assert(AssertFalse<T_ElementType>::value, "Multiplication is not supported for this type.");
     }
     static _SIMD_INL_ void MultiplyInplaceRaw(T_ElementType* to, const T_ElementType* from) {
-        /* Implementation will be specialized */
+        static_assert(AssertFalse<T_ElementType>::value, "Multiplication is not supported for this type.");
+    }
+    static _SIMD_INL_ SIMD_Type_t Divide(const SIMD_Type_t& a, const SIMD_Type_t& b) {
+        static_assert(AssertFalse<T_ElementType>::value, "Division is not supported for this type.");
+    }
+    static _SIMD_INL_ void DivideInplace(SIMD_Type_t& to, const SIMD_Type_t& from) {
+        static_assert(AssertFalse<T_ElementType>::value, "Division is not supported for this type.");
+    }
+    static _SIMD_INL_ void DivideInplaceRaw(T_ElementType* to, const T_ElementType* from) {
+        static_assert(AssertFalse<T_ElementType>::value, "Division is not supported for this type.");
     }
     
     _SIMD_INL_ SIMD_Type_t operator+(const SIMD_Type_t& other) const
@@ -584,12 +671,18 @@ namespace SIMD \
     using TYPE##_##XXX = SIMD_Type_t<TYPE, XXX, ElementType>; \
  }
 
-#define DECLARE_SIMD_USE_TYPE(TYPE, XXX) \
+#define DECLARE_SIMD_USE_TYPE_FLOATING(TYPE, XXX) \
 namespace SIMD \
  {\
     using TYPE##_##XXX = SIMD_Type_t<TYPE, XXX, TYPE>; \
  }
 
+// ██╗ ███╗   ██╗ ████████╗
+// ██║ ████╗  ██║ ╚══██╔══╝
+// ██║ ██╔██╗ ██║    ██║   
+// ██║ ██║╚██╗██║    ██║   
+// ██║ ██║ ╚████║    ██║   
+// ╚═╝ ╚═╝  ╚═══╝    ╚═╝   
 
 #define CREATE_INT128_OPERATOR_PLUS(XX) \
 template<>\
@@ -795,6 +888,7 @@ _SIMD_INL_ void SIMD_Type_t<int, 256, uint##XX##_t>::MultiplyInplaceRaw(uint##XX
     _mm256_store_si256((__m256i*)to, _mm256_mullo_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from)));\
 }
 
+
 #define CREATE_INT512_OPERATOR_PLUS(XX) \
 template<>\
 _SIMD_INL_ SIMD_Type_t<int, 512, int##XX##_t> SIMD_Type_t<int, 512, int##XX##_t>::Add(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
@@ -897,17 +991,12 @@ _SIMD_INL_ void SIMD_Type_t<int, 512, uint##XX##_t>::MultiplyInplaceRaw(uint##XX
     _mm512_store_si512((__m512i*)to, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)to), _mm512_load_si512((__m512i*)from)));\
 }
 
-
-//       _________      _              ___________      _____________     _________________
-//      | ________|    | |            |  _______  |     | ________  |    |_______   _______|
-//      | |            | |            | |       | |     | |       | |            | |
-//      | |_______     | |            | |       | |     | |_______| |            | |
-//      |  _______|    | |            | |       | |     |  _______  |            | |
-//      | |            | |            | |       | |     | |       | |            | |
-//      | |            | |            | |       | |     | |       | |            | |
-//      | |            | |            | |       | |     | |       | |            | |
-//      | |            | |________    | |_______| |     | |       | |            | |
-//      |_|            |__________|   |___________|     |_|       |_|            |_|
+//  ███████╗ ██╗       ██████╗   █████╗  ████████╗
+//  ██╔════╝ ██║      ██╔══ ██╗ ██╔══██╗ ╚══██╔══╝
+//  █████╗   ██║      ██║   ██║ ███████║    ██║   
+//  ██╔══╝   ██║      ██║   ██║ ██╔══██║    ██║   
+//  ██║      ███████╗ ╚██████╔╝ ██║  ██║    ██║   
+//  ╚═╝      ╚══════╝  ╚═════╝  ╚═╝  ╚═╝    ╚═╝   
 
 #define CREATE_FLOAT_OPERATOR_PLUS(XXX) \
 template<>\
@@ -925,6 +1014,25 @@ template<>\
 _SIMD_INL_ void SIMD_Type_t<float, XXX, float>::AddInplaceRaw(float* to, const float* from)\
 {\
     _mm##XXX##_store_ps((float*)to, _mm##XXX##_add_ps(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)));\
+}
+
+
+#define CREATE_FLOAT_OPERATOR_MINUS(XXX) \
+template<>\
+_SIMD_INL_ SIMD_Type_t<float, XXX, float> SIMD_Type_t<float, XXX, float>::Subtract(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm##XXX##_store_ps((float*)result.Data, _mm##XXX##_sub_ps(_mm##XXX##_load_ps((float*)a.Data), _mm##XXX##_load_ps((float*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<float, XXX, float>::SubtractInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm##XXX##_store_ps((float*)to.Data, _mm##XXX##_sub_ps(_mm##XXX##_load_ps((float*)to.Data), _mm##XXX##_load_ps((float*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<float, XXX, float>::SubtractInplaceRaw(float* to, const float* from)\
+{\
+    _mm##XXX##_store_ps((float*)to, _mm##XXX##_sub_ps(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)));\
 }
 
 #define CREATE_FLOAT_OPERATOR_MULTIPLY(XXX) \
@@ -945,35 +1053,30 @@ _SIMD_INL_ void SIMD_Type_t<float, XXX, float>::MultiplyInplaceRaw(float* to, co
     _mm##XXX##_store_ps((float*)to, _mm##XXX##_mul_ps(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)));\
 }
 
-#define CREATE_FLOAT_OPERATOR_MINUS(XXX) \
+#define CREATE_FLOAT_OPERATOR_DIVIDE(XXX) \
 template<>\
-_SIMD_INL_ SIMD_Type_t<float, XXX, float> SIMD_Type_t<float, XXX, float>::Subtract(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+_SIMD_INL_ SIMD_Type_t<float, XXX, float> SIMD_Type_t<float, XXX, float>::Divide(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
     SIMD_Type_t result;\
-    _mm##XXX##_store_ps((float*)result.Data, _mm##XXX##_sub_ps(_mm##XXX##_load_ps((float*)a.Data), _mm##XXX##_load_ps((float*)b.Data)));\
+    _mm##XXX##_store_ps((float*)result.Data, _mm##XXX##_div_ps(_mm##XXX##_load_ps((float*)a.Data), _mm##XXX##_load_ps((float*)b.Data)));\
     return result;\
 }\
 template<>\
-_SIMD_INL_ void SIMD_Type_t<float, XXX, float>::SubtractInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+_SIMD_INL_ void SIMD_Type_t<float, XXX, float>::DivideInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
 {\
-    _mm##XXX##_store_ps((float*)to.Data, _mm##XXX##_sub_ps(_mm##XXX##_load_ps((float*)to.Data), _mm##XXX##_load_ps((float*)from.Data)));\
+    _mm##XXX##_store_ps((float*)to.Data, _mm##XXX##_div_ps(_mm##XXX##_load_ps((float*)to.Data), _mm##XXX##_load_ps((float*)from.Data)));\
 }\
 template<>\
-_SIMD_INL_ void SIMD_Type_t<float, XXX, float>::SubtractInplaceRaw(float* to, const float* from)\
+_SIMD_INL_ void SIMD_Type_t<float, XXX, float>::DivideInplaceRaw(float* to, const float* from)\
 {\
-    _mm##XXX##_store_ps((float*)to, _mm##XXX##_sub_ps(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)));\
+    _mm##XXX##_store_ps((float*)to, _mm##XXX##_div_ps(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)));\
 }
 
-
-//  ________      ______     _        _    ______      _            _________ 
-//  |  ___  \    / ____ \   | |      | |  | ____ \    | |          | ________|                                                                                                   
-//  | |    \ \  | /    \ |  | |      | |  | |   \ \   | |          | |                                                                                                                                      
-//  | |    | |  | |    | |  | |      | |  | |   / /   | |          | |_______                                                                    
-//  | |    | |  | |    | |  | |      | |  | |  / /    | |          |  _______|                                                                   
-//  | |    | |  | |    | |  | |      | |  | |  \ \    | |          | |                                                                           
-//  | |    | |  | |    | |  | |      | |  | |   \ \   | |          | |                                                                           
-//  | |____/ |  | \____/ |  | \______/ |  | |___/ /   | |________  | |_______                                                                           
-//  |_______/    \______/    \________/   |______/    |__________| |_________|                                                                          
-
+//  ██████╗   ██████╗  ██╗   ██╗ ██████╗  ██╗      ███████╗
+//  ██╔══██╗ ██╔══ ██╗ ██║   ██║ ██╔══██╗ ██║      ██╔════╝
+//  ██║  ██║ ██║   ██║ ██║   ██║ ██████╔╝ ██║      ███████╗
+//  ██║  ██║ ██║   ██║ ██║   ██║ ██╔══██╗ ██║      ██╔════╝
+//  ██████╔╝ ╚██████╔╝ ╚██████╔╝ ██████╔╝ ███████╗ ███████╗
+//  ╚═════╝   ╚═════╝   ╚═════╝  ╚═════╝  ╚══════╝ ╚══════╝
 
 #define CREATE_DOUBLE_OPERATOR_PLUS(XXX)\
 template<>\
@@ -1011,9 +1114,43 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::SubtractInplaceRaw(double* to,
     _mm##XXX##_store_pd((double*)to, _mm##XXX##_sub_pd(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)));\
 }
 
+#define CREATE_DOUBLE_OPERATOR_MULTIPLY(XXX) \
+template<>\
+_SIMD_INL_ SIMD_Type_t<double, XXX, double> SIMD_Type_t<double, XXX, double>::Multiply(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm##XXX##_store_pd((double*)result.Data, _mm##XXX##_mul_pd(_mm##XXX##_load_pd((double*)a.Data), _mm##XXX##_load_pd((double*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<double, XXX, double>::MultiplyInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm##XXX##_store_pd((double*)to.Data, _mm##XXX##_mul_pd(_mm##XXX##_load_pd((double*)to.Data), _mm##XXX##_load_pd((double*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<double, XXX, double>::MultiplyInplaceRaw(double* to, const double* from)\
+{\
+    _mm##XXX##_store_pd((double*)to, _mm##XXX##_mul_pd(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)));\
+}
+
+#define CREATE_DOUBLE_OPERATOR_DIVIDE(XXX) \
+template<>\
+_SIMD_INL_ SIMD_Type_t<double, XXX, double> SIMD_Type_t<double, XXX, double>::Divide(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm##XXX##_store_pd((double*)result.Data, _mm##XXX##_div_pd(_mm##XXX##_load_pd((double*)a.Data), _mm##XXX##_load_pd((double*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm##XXX##_store_pd((double*)to.Data, _mm##XXX##_div_pd(_mm##XXX##_load_pd((double*)to.Data), _mm##XXX##_load_pd((double*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, const double* from)\
+{\
+    _mm##XXX##_store_pd((double*)to, _mm##XXX##_div_pd(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)));\
+}
 
 #if defined(__SSE2__) || defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
-
 
 CREATE_INT128_OPERATOR_PLUS(8);
 CREATE_INT128_OPERATOR_PLUS(16);
@@ -1029,7 +1166,6 @@ CREATE_INT128_OPERATOR_MULTIPLY(64);
 
 DECLARE_SIMD_USE_TYPE_INT(int, 128);
 
-
 CREATE_INT256_OPERATOR_PLUS(8);
 CREATE_INT256_OPERATOR_PLUS(16);
 CREATE_INT256_OPERATOR_PLUS(32);
@@ -1042,7 +1178,6 @@ CREATE_INT256_OPERATOR_MULTIPLY(16);
 CREATE_INT256_OPERATOR_MULTIPLY(32);
 CREATE_INT256_OPERATOR_MULTIPLY(64);
 
-
 DECLARE_SIMD_USE_TYPE_INT(int, 256);
 
 #endif
@@ -1052,19 +1187,20 @@ DECLARE_SIMD_USE_TYPE_INT(int, 256);
 CREATE_FLOAT_OPERATOR_PLUS(256);
 CREATE_FLOAT_OPERATOR_MINUS(256);
 CREATE_FLOAT_OPERATOR_MULTIPLY(256);
+CREATE_FLOAT_OPERATOR_DIVIDE(256);
 
-DECLARE_SIMD_USE_TYPE(float, 256);
-
+DECLARE_SIMD_USE_TYPE_FLOATING(float, 256);
 
 CREATE_DOUBLE_OPERATOR_PLUS(256);
 CREATE_DOUBLE_OPERATOR_MINUS(256);
+CREATE_DOUBLE_OPERATOR_MULTIPLY(256);
+CREATE_DOUBLE_OPERATOR_DIVIDE(256);
 
-DECLARE_SIMD_USE_TYPE(double, 256);
+DECLARE_SIMD_USE_TYPE_FLOATING(double, 256);
 
 #endif
 
 #if defined(__AVX512F__)
-
 
 CREATE_INT512_OPERATOR_PLUS(8);
 CREATE_INT512_OPERATOR_PLUS(16);
@@ -1080,20 +1216,19 @@ CREATE_INT512_OPERATOR_MULTIPLY(64);
 
 DECLARE_SIMD_USE_TYPE_INT(int, 512);
 
-
-
 CREATE_FLOAT_OPERATOR_PLUS(512);
 CREATE_FLOAT_OPERATOR_MINUS(512);
 CREATE_FLOAT_OPERATOR_MULTIPLY(512);
+CREATE_FLOAT_OPERATOR_DIVIDE(512);
 
-DECLARE_SIMD_USE_TYPE(float, 512);
-
-
+DECLARE_SIMD_USE_TYPE_FLOATING(float, 512);
 
 CREATE_DOUBLE_OPERATOR_PLUS(512);
 CREATE_DOUBLE_OPERATOR_MINUS(512);
+CREATE_DOUBLE_OPERATOR_MULTIPLY(512);
+CREATE_DOUBLE_OPERATOR_DIVIDE(512);
 
-DECLARE_SIMD_USE_TYPE(double, 512);
+DECLARE_SIMD_USE_TYPE_FLOATING(double, 512);
 
 #endif
 
@@ -1176,6 +1311,14 @@ public:
         }
     }
 
+    friend void operator/=(Array& lhs, const Array& rhs)
+    {
+        for (unsigned int i = 0; i < Length; i++)
+        {
+            T::DivideInplaceRaw(lhs.Data + i*T::ElementCount, rhs.Data + i*T::ElementCount);
+        }
+    }
+
     _SIMD_INL_ typename T::ElementType* operator[](unsigned int index)
     {
         return Data + index*T::ElementCount;
@@ -1198,4 +1341,15 @@ private:
 #undef CREATE_INT128_OPERATOR_MINUS
 #undef CREATE_INT256_OPERATOR_MINUS
 #undef CREATE_INT512_OPERATOR_MINUS
-#undef GET_CPU_INFO
+#undef CREATE_INT128_OPERATOR_MULTIPLY
+#undef CREATE_INT256_OPERATOR_MULTIPLY
+#undef CREATE_INT512_OPERATOR_MULTIPLY
+#undef CREATE_FLOAT_OPERATOR_PLUS
+#undef CREATE_FLOAT_OPERATOR_MINUS
+#undef CREATE_FLOAT_OPERATOR_MULTIPLY
+#undef CREATE_FLOAT_OPERATOR_DIVIDE
+#undef CREATE_DOUBLE_OPERATOR_PLUS
+#undef CREATE_DOUBLE_OPERATOR_MINUS
+#undef CREATE_DOUBLE_OPERATOR_MULTIPLY
+#undef CREATE_DOUBLE_OPERATOR_DIVIDE
+
