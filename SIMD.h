@@ -1165,7 +1165,68 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     _mm##XXX##_store_pd((double*)to, _mm##XXX##_div_pd(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)));\
 }
 
-#if defined(__SSE2__)
+//Get GCC/MSVC Compile Time SIMD Macros
+
+#if defined(__MSVC__)
+    #if defined(_M_IX86_FP)
+        #if _M_IX86_FP  == 1
+            #define SSE_AVAILABLE 1
+        #elif _M_IX86_FP == 2
+            #define SSE2_AVAILABLE 1
+            #define SSE4_1_AVAILABLE 1
+        #endif
+    #endif
+#elif defined(__GNUC__)
+    #if defined(__SSE__)
+        #define SSE_AVAILABLE 1
+    #endif
+    #if defined(__SSE2__)
+        #define SSE2_AVAILABLE 1
+    #endif
+    #if defined(__SSE4_1__)
+        #define SSE4_1_AVAILABLE 1
+    #endif
+#endif
+
+#if defined(__AVX__)
+    #define AVX_AVAILABLE 1
+    #define SSE_AVAILABLE 1
+    #define SSE2_AVAILABLE 1
+#endif
+#if defined(__AVX2__)
+    #define AVX2_AVAILABLE 1
+    #define SSE4_1_AVAILABLE 1
+#endif
+#if defined(__AVX512F__)
+    #define AVX512F_AVAILABLE 1
+#endif
+
+//print pragma messages for debug
+#if defined(SSE_AVAILABLE)
+    #pragma message("SSE Available")
+#endif
+#if defined(SSE2_AVAILABLE)
+    #pragma message("SSE2 Available")
+#endif
+#if defined(SSE4_1_AVAILABLE)
+    #pragma message("SSE4.1 Available")
+#endif
+#if defined(AVX_AVAILABLE)
+    #pragma message("AVX Available")
+#endif
+#if defined(AVX2_AVAILABLE)
+    #pragma message("AVX2 Available")
+#endif
+#if defined(AVX512F_AVAILABLE)
+    #pragma message("AVX512F Available")
+#endif
+
+//print if none is available
+#if !defined(SSE_AVAILABLE) && !defined(SSE2_AVAILABLE) && !defined(SSE4_1_AVAILABLE) && !defined(AVX_AVAILABLE) && !defined(AVX2_AVAILABLE) && !defined(AVX512F_AVAILABLE)
+    #pragma message("No SIMD Available")
+#endif
+
+#if defined(SSE2_AVAILABLE)
     #define SIMD_USE_TYPE_INT_128
 
     CREATE_INT128_OPERATOR_PLUS(8);
@@ -1180,12 +1241,12 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT128_OPERATOR_MULTIPLY(16);
 #endif
 
-#if defined(__SSE4_1__)
+#if defined(SSE4_1_AVAILABLE)
     #define SIMD_USE_TYPE_INT_256 1
     CREATE_INT128_OPERATOR_MULTIPLY(32);
 #endif
 
-#if defined(__AVX2__)
+#if defined(AVX2_AVAILABLE)
     #define SIMD_USE_TYPE_INT_256 1
 
     CREATE_INT256_OPERATOR_PLUS(8);
@@ -1211,7 +1272,7 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
 #endif
 
 
-#if defined(__AVX__)
+#if defined(AVX_AVAILABLE)
     #define SIMD_USE_TYPE_FLOAT_256 1
     #define SIMD_USE_TYPE_DOUBLE_256 1
     CREATE_FLOAT_OPERATOR_PLUS(256);
@@ -1233,7 +1294,7 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     DECLARE_SIMD_USE_TYPE_FLOATING(double, 256);
 #endif
 
-#if defined(__AVX512F__)
+#if defined(AVX512F_AVAILABLE)
     //TODO: This part couldn't be tested yet due to some hardware incapabilities... :(
     CREATE_INT128_OPERATOR_MULTIPLY(64);
     CREATE_INT256_OPERATOR_MULTIPLY(64);
@@ -1271,13 +1332,13 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
 //SIMD::int_XXX checks are not ideal...
 template<typename T>
 using IsSIMDType = typename std::enable_if<
-#if defined(__SSE2__) || defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
+#if defined(SSE2_AVAILABLE) || defined(AVX_AVAILABLE) || defined(AVX2_AVAILABLE) || defined(AVX512F_AVAILABLE)
     (std::is_same<int, typename T::Type>::value && (T::BitWidth == 128) && IsElementAnyOfInts<typename T::ElementType>::value) || ( std::is_same<int, typename T::Type>::value && (T::BitWidth == 256) && IsElementAnyOfInts<typename T::ElementType>::value) ||
 #endif
-#if defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__)
+#if defined(AVX_AVAILABLE) || defined(AVX2_AVAILABLE) || defined(AVX512F_AVAILABLE)
     std::is_same<T, SIMD::float_256>::value || std::is_same<T, SIMD::double_256>::value ||
 #endif
-#if defined(__AVX512F__)
+#if defined(AVX512F_AVAILABLE)
     ( std::is_same<int, typename T::Type>::value && (T::BitWidth == 512) && IsElementAnyOfInts<typename T::ElementType>::value) || std::is_same<T, SIMD::float_512>::value || std::is_same<T, SIMD::double_512>::value ||
 #endif
     std::is_same<int,float>::value, //dummy

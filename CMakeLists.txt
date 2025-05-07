@@ -33,9 +33,7 @@ target_include_directories(BasicSIMD INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 target_sources(BasicSIMD INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/SIMD.h)
 
 if(MSVC)
-    target_compile_options(BasicSIMD INTERFACE 
-        /arch:AVX2 
-    )
+    target_compile_options(BasicSIMD INTERFACE /arch:AVX2)
 else()
     target_compile_options(BasicSIMD INTERFACE -march=native -fno-strict-aliasing)
 endif()
