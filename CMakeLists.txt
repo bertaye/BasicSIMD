@@ -37,7 +37,7 @@ if(MSVC)
         /arch:AVX2 
     )
 else()
-    target_compile_options(BasicSIMD INTERFACE -march:native -fno-strict-aliasing)
+    target_compile_options(BasicSIMD INTERFACE -march=native -fno-strict-aliasing)
 endif()
 
 # Tests

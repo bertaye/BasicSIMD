@@ -285,7 +285,6 @@ REGISTER_INT_BENCHMARKS(int, int16_t, 128, *=, Multiplication, 100000, 50)
 // Int128 benchmarks with int8_t
 REGISTER_INT8_BENCHMARKS(int, 128, +=, Addition, 100000)
 REGISTER_INT8_BENCHMARKS(int, 128, -=, Subtraction, 100000)
-REGISTER_INT8_BENCHMARKS(int, 128, *=, Multiplication, 100000)
 
 // Int256 benchmarks
 REGISTER_INT_BENCHMARKS(int, int32_t, 256, +=, Addition, 100000, 1000)
