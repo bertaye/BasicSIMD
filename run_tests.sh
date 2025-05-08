@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configure the build using CMake
-cmake -S . -B build
+cmake -DCMAKE_BUILD_TYPE=Release -S . -B build
 
 # Build the project with Release configuration
 cmake --build build --config Release

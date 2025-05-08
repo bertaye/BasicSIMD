@@ -1,7 +1,7 @@
 #ifdef _MSC_VER
 #define _SIMD_INL_ __forceinline
-#else
-#define _SIMD_INL_ __attribute__((always_inline))
+#elif defined(__GNUC__) || defined(__clang__)
+#define _SIMD_INL_ __attribute__((always_inline)) inline
 #endif
 #include <immintrin.h>
 #include <type_traits>
@@ -1384,7 +1384,7 @@ public:
     }
 
     //Add + and - operators
-    friend void operator+=(Array& lhs, const Array& rhs)
+    _SIMD_INL_ friend void operator+=(Array& lhs, const Array& rhs)
     {
         for (unsigned int i = 0; i < Length; i++)
         {
@@ -1392,7 +1392,7 @@ public:
         }
     }
 
-    friend void operator-=(Array& lhs, const Array& rhs)
+    _SIMD_INL_ friend void operator-=(Array& lhs, const Array& rhs)
     {
         for (unsigned int i = 0; i < Length; i++)
         {
@@ -1400,7 +1400,7 @@ public:
         }
     }
 
-    friend void operator*=(Array& lhs, const Array& rhs)
+    _SIMD_INL_ friend void operator*=(Array& lhs, const Array& rhs)
     {
         for (unsigned int i = 0; i < Length; i++)
         {
@@ -1408,7 +1408,7 @@ public:
         }
     }
 
-    friend void operator/=(Array& lhs, const Array& rhs)
+    _SIMD_INL_ friend void operator/=(Array& lhs, const Array& rhs)
     {
         for (unsigned int i = 0; i < Length; i++)
         {

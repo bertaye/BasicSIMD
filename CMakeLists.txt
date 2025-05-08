@@ -26,16 +26,18 @@ endif()
 project(BasicSIMD)
 
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
-
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+endif()
 add_library(BasicSIMD INTERFACE)
 target_include_directories(BasicSIMD INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 target_sources(BasicSIMD INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/SIMD.h)
 
-if(MSVC)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(BasicSIMD INTERFACE /arch:AVX2)
-else()
-    target_compile_options(BasicSIMD INTERFACE -march=native -fno-strict-aliasing)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Save assembly output with very detailed annotations
+    target_compile_options(BasicSIMD INTERFACE -march=native -fno-strict-aliasing -O3 -fno-tree-vectorize)
 endif()
 
 # Tests
