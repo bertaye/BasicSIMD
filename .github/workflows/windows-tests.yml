@@ -31,4 +31,4 @@ jobs:
       uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_message: "Update benchmark results from GitHub Actions (Windows)"
-        file_pattern: benchmark_results_windows_msvc/* README.md test_results.txt
+        file_pattern: benchmark_results_windows_msvc/*
