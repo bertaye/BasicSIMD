@@ -28,6 +28,8 @@ jobs:
         chmod +x ./run_tests.sh
         ./run_tests.sh
     
+    - name: Pull latest changes
+      run: git pull
     - name: Commit changes
       uses: stefanzweifel/git-auto-commit-action@v4
       with:

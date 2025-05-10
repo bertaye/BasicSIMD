@@ -28,7 +28,9 @@ jobs:
     
     - name: Run tests and update benchmarks
       run: .\run_tests.bat
-    
+      
+    - name: Pull latest changes
+      run: git pull
     - name: Commit changes
       uses: stefanzweifel/git-auto-commit-action@v4
       with:
