@@ -8,6 +8,7 @@
 #include <iostream>
 #include <stdint.h>
 #include <array>
+#include <memory>
 #ifdef _WIN32
 #include <malloc.h>
 #elif defined(__linux__)

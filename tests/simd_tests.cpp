@@ -116,6 +116,7 @@ static void BM_SIMD_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::Sta
     } \
     for (auto _ : state) { \
         simd_array OPERATION simd_array_2; \
+        benchmark::DoNotOptimize(simd_array); \
     } \
 }
 
@@ -137,6 +138,7 @@ static void BM_Plain_##SIMD_TYPE##WIDTH##_##OP_NAME##_##ARRAY_SIZE(benchmark::St
         for (size_t i = 0; i < plain_array.size(); i++) { \
             plain_array[i] OPERATION plain_array_2[i]; \
         } \
+        benchmark::DoNotOptimize(plain_array); \
     } \
 }
 
@@ -153,7 +155,7 @@ static void BM_SIMD_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##ARR
     SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, ARRAY_SIZE> simd_array; \
     SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>, ARRAY_SIZE> simd_array_2; \
     std::mt19937 rng(42); \
-    std::uniform_int_distribution<ELEMENT_TYPE> dist(0, VALUE_RANGE); \
+    std::uniform_int_distribution<ELEMENT_TYPE> dist(-VALUE_RANGE, VALUE_RANGE); \
     for (int i = 0; i < ARRAY_SIZE; i++) { \
         for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount; j++) { \
             ELEMENT_TYPE value = dist(rng); \
@@ -164,6 +166,8 @@ static void BM_SIMD_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##ARR
     } \
     for (auto _ : state) { \
         simd_array OPERATION simd_array_2; \
+        benchmark::DoNotOptimize(simd_array); \
+        benchmark::DoNotOptimize(simd_array_2); \
     } \
 }
 
@@ -172,7 +176,7 @@ static void BM_Plain_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##AR
     std::vector<ELEMENT_TYPE> plain_array(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
     std::vector<ELEMENT_TYPE> plain_array_2(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount); \
     std::mt19937 rng(42); \
-    std::uniform_int_distribution<ELEMENT_TYPE> dist(0, VALUE_RANGE); \
+    std::uniform_int_distribution<ELEMENT_TYPE> dist(-VALUE_RANGE, VALUE_RANGE); \
     for (int i = 0; i < ARRAY_SIZE; i++) { \
         for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount; j++) { \
             ELEMENT_TYPE value = dist(rng); \
@@ -185,6 +189,7 @@ static void BM_Plain_##SIMD_TYPE##WIDTH##_with_##ELEMENT_TYPE##_##OP_NAME##_##AR
         for (size_t i = 0; i < plain_array.size(); i++) { \
             plain_array[i] OPERATION plain_array_2[i]; \
         } \
+        benchmark::DoNotOptimize(plain_array); \
     } \
 }
 
@@ -201,7 +206,7 @@ static void BM_SIMD_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE(be
     SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<int8_t>, ARRAY_SIZE> simd_array; \
     SIMD::Array<SIMD::SIMD_TYPE##_##WIDTH<int8_t>, ARRAY_SIZE> simd_array_2; \
     std::mt19937 rng(42); \
-    std::uniform_int_distribution<int> dist(0, 127); /* Use int distribution and cast to int8_t */ \
+    std::uniform_int_distribution<int> dist(-126, 127); /* Use int distribution and cast to int8_t */ \
     for (int i = 0; i < ARRAY_SIZE; i++) { \
         for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount; j++) { \
             int8_t value = static_cast<int8_t>(dist(rng)); \
@@ -212,6 +217,7 @@ static void BM_SIMD_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE(be
     } \
     for (auto _ : state) { \
         simd_array OPERATION simd_array_2; \
+        benchmark::DoNotOptimize(simd_array); \
     } \
 }
 
@@ -220,7 +226,7 @@ static void BM_Plain_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE(b
     std::vector<int8_t> plain_array(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount); \
     std::vector<int8_t> plain_array_2(ARRAY_SIZE * SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount); \
     std::mt19937 rng(42); \
-    std::uniform_int_distribution<int> dist(0, 127); /* Use int distribution and cast to int8_t */ \
+    std::uniform_int_distribution<int> dist(-126, 127); /* Use int distribution and cast to int8_t */ \
     for (int i = 0; i < ARRAY_SIZE; i++) { \
         for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<int8_t>::ElementCount; j++) { \
             int8_t value = static_cast<int8_t>(dist(rng)); \
@@ -233,6 +239,7 @@ static void BM_Plain_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE(b
         for (size_t i = 0; i < plain_array.size(); i++) { \
             plain_array[i] OPERATION plain_array_2[i]; \
         } \
+        benchmark::DoNotOptimize(plain_array); \
     } \
 }
 
@@ -274,8 +281,8 @@ REGISTER_FLOAT_BENCHMARKS(double, 256, *=, Multiplication, 100000)
 REGISTER_FLOAT_BENCHMARKS(double, 256, /=, Division, 100000)
 
 // Int128 benchmarks
-REGISTER_INT_BENCHMARKS(int, int32_t, 128, +=, Addition, 100000, 1000)
-REGISTER_INT_BENCHMARKS(int, int32_t, 128, -=, Subtraction, 100000, 1000)
+REGISTER_INT_BENCHMARKS(int, int32_t, 128, +=, Addition, 1000000, 1000)
+REGISTER_INT_BENCHMARKS(int, int32_t, 128, -=, Subtraction, 1000000, 1000)
 REGISTER_INT_BENCHMARKS(int, int32_t, 128, *=, Multiplication, 100000, 50)
 
 REGISTER_INT_BENCHMARKS(int, int16_t, 128, +=, Addition, 100000, 1000)

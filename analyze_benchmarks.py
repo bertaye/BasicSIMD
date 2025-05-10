@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import argparse  # Add argparse for command line arguments
+import cpuinfo
 
 def parse_benchmark_results(file_path):
     """Parse benchmark results from file."""
@@ -187,60 +188,70 @@ def plot_comparisons(grouped_benchmarks, output_dir):
                 plain_times.append(row['time_ms_plain'])
                 speedups.append(row['speedup_percent'])
     
-    # Sort the data by data type and operation for better visualization
-    sorted_indices = np.argsort([f"{dt}_{op}" for dt, op in zip(data_types, operations)])
+    # Sort the data by speedup in decreasing order
+    speedup_x = [speedup / 100 + 1 for speedup in speedups]
+    sorted_indices = np.argsort(speedup_x)[::-1]  # Sort in decreasing order
     categories = [categories[i] for i in sorted_indices]
     data_types = [data_types[i] for i in sorted_indices]
     operations = [operations[i] for i in sorted_indices]
     simd_times = [simd_times[i] for i in sorted_indices]
     plain_times = [plain_times[i] for i in sorted_indices]
     speedups = [speedups[i] for i in sorted_indices]
+    speedup_x = [speedup_x[i] for i in sorted_indices]
     
     # Create the consolidated comparison plot
     plt.figure(figsize=(18, 10))
     bar_width = 0.35
     x = np.arange(len(categories))
-    
-    # Create a bar chart with SIMD and Plain implementations
-    plt.bar(x - bar_width/2, simd_times, bar_width, label='SIMD', color='royalblue')
-    plt.bar(x + bar_width/2, plain_times, bar_width, label='Plain', color='lightcoral')
-    
-    plt.xlabel('Benchmark Category', fontsize=12)
-    plt.ylabel('Time (ms)', fontsize=12)
-    plt.title('SIMD vs Plain Performance Comparison', fontsize=14)
-    
-    # Add speedup text on top of bars
-    for i in range(len(categories)):
-        speedup = speedups[i]
-        color = 'green' if speedup > 0 else 'red'
-        position = max(simd_times[i], plain_times[i]) + 0.002
-        plt.text(i, position, f"{speedup:.1f}%", ha='center', color=color, weight='bold')
-    
-    plt.xticks(x, categories, rotation=45, ha='right', fontsize=10)
-    plt.legend(fontsize=12)
-    plt.tight_layout()
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.savefig(output_path / "consolidated_comparison.png", dpi=300)
+   
     
     # Also create a speedup chart
     plt.figure(figsize=(18, 10))
-    colors = ['green' if s > 0 else 'red' for s in speedups]
-    plt.bar(x, speedups, color=colors)
-    plt.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+    colors = ['limegreen' if s > 0 else 'red' for s in speedups]
+    plt.bar(x, speedup_x, 0.5, color=colors)
     
     plt.xlabel('Benchmark Category', fontsize=12)
-    plt.ylabel('Speedup (%)', fontsize=12)
-    plt.title('SIMD Speedup over Plain Implementation', fontsize=14)
+    plt.ylabel('Speedup', fontsize=12)
+    compiler_text = ("GCC " + gcc_version) if os_platform == 'Linux' else (("MSVC " + msvc_version) if os_platform == 'Windows' else "Unknown Compiler") 
+    plt.title(f"SIMD Speedup Over Plain Implementation ({os_platform} {compiler_text})", fontsize=14, weight='bold')
     
     # Add speedup values as text
     for i in range(len(categories)):
-        va = 'bottom' if speedups[i] > 0 else 'top'
-        offset = 2 if speedups[i] > 0 else -2
-        plt.text(i, speedups[i] + offset, f"{speedups[i]:.1f}%", ha='center', va=va, fontsize=10)
+        va = 'bottom' if speedup_x[i] > 1 else 'top'
+        offset = 0.05 if speedup_x[i] > 1 else -0.15
+        plt.text(i, speedup_x[i] + offset, f"{speedup_x[i]:.2f}x", ha='center', va=va, fontsize=10, weight='bold')
+    
+    # Format y-axis ticks to show "x" suffix
+    from matplotlib.ticker import FuncFormatter
+    def format_speedup(value, pos):
+        return f"{value:.0f}x"
+    plt.gca().yaxis.set_major_formatter(FuncFormatter(format_speedup))
     
     plt.xticks(x, categories, rotation=45, ha='right', fontsize=10)
     plt.tight_layout()
     plt.grid(axis='y', linestyle='--', alpha=0.7)
+    # Get CPU info including cores, architecture and add it to the plot as a box on top right
+    cpu_info = cpuinfo.get_cpu_info()
+    cpu_name = cpu_info.get('brand_raw', 'N/A')
+    cpu_arch = cpu_info.get('arch_string_raw', 'N/A')
+    cpu_cores = cpu_info.get('count', 'N/A')
+    cpu_freq_actual = cpu_info.get('hz_actual_friendly', 'N/A')
+    cpu_freq_advertised = cpu_info.get('hz_advertised_friendly', 'N/A')
+
+    info_text = (
+        f"CPU: {cpu_name}\n"
+        f"Arch: {cpu_arch}\n"
+        f"Cores: {cpu_cores}\n"
+        f"Freq (Actual): {cpu_freq_actual}\n"
+        f"Freq (Advertised): {cpu_freq_advertised}"
+    )
+
+    # Position the text box on the top right
+    # Adjust x and y coordinates as needed based on your plot's scale
+    # Using axes coordinates (0 to 1 for x and y) for positioning relative to the plot area
+    plt.text(0.80, 0.98, info_text, transform=plt.gca().transAxes,
+             fontsize=9, verticalalignment='top', horizontalalignment='left',
+             bbox=dict(boxstyle='round,pad=0.5', fc='wheat', alpha=0.5))
     plt.savefig(output_path / "consolidated_speedup.png", dpi=300)
     
     # Create a table plot with the data
@@ -303,8 +314,8 @@ def generate_summary_report(grouped_benchmarks, output_dir):
             data_type = group['data_type']
             operation = group['operation']
             
-            f.write(f"## {data_type} {operation}\n\n")
-            f.write("| Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (%) |\n")
+            f.write(f"#### {data_type} {operation}\n\n")
+            f.write("| Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |\n")
             f.write("|---------|---------------|----------------|------------|\n")
             
             for _, row in comp_df.iterrows():
@@ -312,24 +323,57 @@ def generate_summary_report(grouped_benchmarks, output_dir):
                 plain_time = row['time_ms_plain']
                 speedup = row['speedup_percent']
                 
-                f.write(f"| {row['size']} | {simd_time:.3f} | {plain_time:.3f} | {speedup:.2f} |\n")
+                f.write(f"| {row['size']} | {simd_time:.3f} | {plain_time:.3f} | {speedup/100.0 + 1:.2f}x |\n")
             
             f.write("\n")
 
+import platform
+import subprocess
 def main():
+    global gcc_version
+    global msvc_version
+    global os_platform
+    
+    os_platform = platform.system()
+    
+    if os_platform == 'Linux':
+        output = subprocess.check_output(['gcc', '--version'], stderr=subprocess.STDOUT)
+        output = output.decode('utf-8')
+        gcc_version = re.search(r'(\d+\.\d+\.\d+)', output).group(1)
+        print(f"GCC version: {gcc_version}")
+    elif os_platform == 'Windows':
+        try:
+            result = subprocess.run(
+                [
+                    r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
+                    "-latest",
+                    "-products", "*",
+                    "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                    "-property", "catalog_productDisplayVersion"
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            msvc_version = result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            print(f"Error getting MSVC version: {e}")
+            return None
+    
     """Main function to run the benchmark analysis."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Analyze SIMD benchmark results.')
-    parser.add_argument('--input', '-i',
+    parser.add_argument('--input_file', '-i',
                         required=True,
                         help='Path to the benchmark results file')
-    parser.add_argument('--output', '-o',
+    parser.add_argument('--output_dir', '-o',
                         required=True,
                         help='Directory to save analysis results')
     args = parser.parse_args()
     
-    input_file = args.input
-    output_dir = args.output
+    input_file = args.input_file
+    output_dir = args.output_dir
     
     print(f"Analyzing benchmarks from: {input_file}")
     print(f"Saving results to: {output_dir}")
