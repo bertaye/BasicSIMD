@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 import argparse  # Add argparse for command line arguments
 import cpuinfo
+import datetime  # Add datetime for generation timestamp
 
 def parse_benchmark_results(file_path):
     """Parse benchmark results from file."""
@@ -165,6 +166,9 @@ def plot_comparisons(grouped_benchmarks, output_dir):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     
+    # Get current timestamp for the generation time
+    generation_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     # Collect data for consolidated plot
     categories = []
     simd_times = []
@@ -247,11 +251,16 @@ def plot_comparisons(grouped_benchmarks, output_dir):
     )
 
     # Position the text box on the top right
-    # Adjust x and y coordinates as needed based on your plot's scale
-    # Using axes coordinates (0 to 1 for x and y) for positioning relative to the plot area
     plt.text(0.80, 0.98, info_text, transform=plt.gca().transAxes,
              fontsize=9, verticalalignment='top', horizontalalignment='left',
              bbox=dict(boxstyle='round,pad=0.5', fc='wheat', alpha=0.5))
+    
+    # Add generation time in a separate box below CPU info
+    timestamp_text = f"Generated: {generation_time}"
+    plt.text(0.65, 0.98, timestamp_text, transform=plt.gca().transAxes,
+             fontsize=9, verticalalignment='top', horizontalalignment='left',
+             bbox=dict(boxstyle='round,pad=0.5', fc='lightblue', alpha=0.5))
+             
     plt.savefig(output_path / "consolidated_speedup.png", dpi=300)
     
     # Create a table plot with the data
@@ -294,6 +303,12 @@ def plot_comparisons(grouped_benchmarks, output_dir):
             table[(i+1, 3)].set_facecolor('#f4d5d5')  # Light red
     
     plt.title('SIMD vs Plain Performance Comparison Table', fontsize=16, pad=20)
+    
+    # Add generation time in a box at the bottom of the table
+    plt.figtext(0.5, 0.01, f"Generated: {generation_time}", 
+                ha='center', fontsize=10, 
+                bbox=dict(boxstyle='round,pad=0.5', fc='lightblue', alpha=0.5))
+                
     plt.tight_layout()
     plt.savefig(output_path / "comparison_table.png", dpi=300, bbox_inches='tight')
     
