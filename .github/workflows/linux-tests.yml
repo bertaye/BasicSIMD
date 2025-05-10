@@ -1,0 +1,31 @@
+name: Linux Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+        pip install matplotlib numpy pandas py-cpuinfo
+    
+    - name: Run tests and update benchmarks
+      run: |
+        chmod +x ./run_tests.sh
+        ./run_tests.sh
+    
+    - name: Commit changes
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "Update benchmark results from GitHub Actions (Linux)"
+        file_pattern: benchmark_results_linux_gcc/* README.md test_results.txt
