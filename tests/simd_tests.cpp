@@ -264,14 +264,16 @@ BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE)->U
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, +=, Addition, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, -=, Subtraction, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, *=, Multiplication, 50)
-TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, /=, Division, 50)
-
+#if defined(SVML_COMPATIBLE_COMPILER)
+    TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, /=, DivisionSVML_Only, 50)
+#endif
 // Integer tests - Int256
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, +=, Addition, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, -=, Subtraction, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, *=, Multiplication, 50)
-TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, /=, Division, 50)
-
+#if defined(SVML_COMPATIBLE_COMPILER)
+    TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, /=, DivisionSVML_Only, 50)
+#endif
 // Float tests - Float256
 TEST_SIMD_FLOAT_OPERATION(float, 256, +=, Addition)
 TEST_SIMD_FLOAT_OPERATION(float, 256, -=, Subtraction)

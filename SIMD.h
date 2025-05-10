@@ -1272,7 +1272,8 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
 
 //Get GCC/MSVC Compile Time SIMD Macros
 
-#if defined(__MSVC__)
+#if defined(_MSC_VER)
+    #define SVML_COMPATIBLE_COMPILER 1
     #if defined(_M_IX86_FP)
         #if _M_IX86_FP  == 1
             #define SSE_AVAILABLE 1
@@ -1325,7 +1326,9 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
 #if defined(AVX512F_AVAILABLE)
     #pragma message("AVX512F Available")
 #endif
-
+#if defined(SVML_COMPATIBLE_COMPILER)
+    #pragma message("SVML Compatible Compiler")
+#endif
 //print if none is available
 #if !defined(SSE_AVAILABLE) && !defined(SSE2_AVAILABLE) && !defined(SSE4_1_AVAILABLE) && !defined(AVX_AVAILABLE) && !defined(AVX2_AVAILABLE) && !defined(AVX512F_AVAILABLE)
     #pragma message("No SIMD Available")
@@ -1345,11 +1348,13 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT128_OPERATOR_MINUS(64);
     
     CREATE_INT128_OPERATOR_MULTIPLY(16);
-
-    CREATE_INT128_OPERATOR_DIVIDE(8);
-    CREATE_INT128_OPERATOR_DIVIDE(16);
-    CREATE_INT128_OPERATOR_DIVIDE(32);
-    CREATE_INT128_OPERATOR_DIVIDE(64);
+    
+    #if defined(SVML_COMPATIBLE_COMPILER)
+        CREATE_INT128_OPERATOR_DIVIDE(8);
+        CREATE_INT128_OPERATOR_DIVIDE(16);
+        CREATE_INT128_OPERATOR_DIVIDE(32);
+        CREATE_INT128_OPERATOR_DIVIDE(64);
+    #endif
 #endif
 
 #if defined(SSE4_1_AVAILABLE)
@@ -1397,10 +1402,12 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_DOUBLE_OPERATOR_MULTIPLY(256);
     CREATE_DOUBLE_OPERATOR_DIVIDE(256);
 
-    CREATE_INT256_OPERATOR_DIVIDE(8);
-    CREATE_INT256_OPERATOR_DIVIDE(16);
-    CREATE_INT256_OPERATOR_DIVIDE(32);
-    CREATE_INT256_OPERATOR_DIVIDE(64);
+    #if defined(SVML_COMPATIBLE_COMPILER)
+        CREATE_INT256_OPERATOR_DIVIDE(8);
+        CREATE_INT256_OPERATOR_DIVIDE(16);
+        CREATE_INT256_OPERATOR_DIVIDE(32);
+        CREATE_INT256_OPERATOR_DIVIDE(64);
+    #endif
 #endif
 
 #if defined(SIMD_USE_TYPE_FLOAT_256)
@@ -1438,10 +1445,12 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_FLOAT_OPERATOR_MULTIPLY(512);
     CREATE_FLOAT_OPERATOR_DIVIDE(512);
     
-    CREATE_DOUBLE_OPERATOR_PLUS(512);
-    CREATE_DOUBLE_OPERATOR_MINUS(512);
-    CREATE_DOUBLE_OPERATOR_MULTIPLY(512);
-    CREATE_DOUBLE_OPERATOR_DIVIDE(512);
+    #if defined(SVML_COMPATIBLE_COMPILER)
+        CREATE_DOUBLE_OPERATOR_PLUS(512);
+        CREATE_DOUBLE_OPERATOR_MINUS(512);
+        CREATE_DOUBLE_OPERATOR_MULTIPLY(512);
+        CREATE_DOUBLE_OPERATOR_DIVIDE(512);
+    #endif
 #endif
 
 #if defined(SIMD_USE_TYPE_INT_512)
