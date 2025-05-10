@@ -43,11 +43,11 @@ Performance improvements comparing SIMD operations vs. standard operations on di
 
 ### Using the Project
 
-```bash
 This is a header only project, no need for building. 
+```bash
 #include<SIMD.h>
-Should be sufficient.
 ```
+Should be sufficient.
 
 ### Running Tests & Benchmarks
 
@@ -69,6 +69,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Contributing
 
-Current state of the project is purely based on the personal needs, any contribution for extending SIMD support is appreciated & welcome.
+Current state of the project is purely based on the personal needs, any contribution for extending SIMD support is appreciated & welcome. 
 
-The SIMD.h uses macros a lot to eliminate manual work of repetitive coding, but the idea is really simple; defining a macro for a new operator/function as a specialization of base SIMD_Type_t and then using it for different bit widths.
+You can always contact me via e-mail from: bertayeren@gmail.com
+
+The SIMD.h uses macros a lot to eliminate manual work of repetitive coding, but the idea is really simple; define a macro for a new operator/function as a specialization of base SIMD_Type_t and then use it for different bit widths.
+
+The SIMD::Array class is created for testing, but I believe it is a good example for building your own SIMD classes efficiently.
