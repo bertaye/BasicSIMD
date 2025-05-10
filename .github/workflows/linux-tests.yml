@@ -35,3 +35,4 @@ jobs:
       with:
         commit_message: "Update benchmark results from GitHub Actions (Linux)"
         file_pattern: benchmark_results_linux_gcc/*
+        add_options: -f

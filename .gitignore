@@ -1,2 +1,4 @@
-build
+build/*
 .vscode/*
+benchmark_results_windows_msvc/*
+benchmark_results_linux_gcc/*
