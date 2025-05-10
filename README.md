@@ -21,7 +21,7 @@ A high-performance C++ framework for SIMD (Single Instruction Multiple Data) ope
 
 ### Unit Tests Status
 
-![Unittest Results](benchmark_results_windows_gcc/unit_test_results.png)  
+![Unittest Results](benchmark_results_windows_msvc/unit_test_results.png)  
 
 ### Performance Benchmarks
 
