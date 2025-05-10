@@ -787,6 +787,40 @@ _SIMD_INL_ void SIMD_Type_t<int, 128, uint##XX##_t>::MultiplyInplaceRaw(uint##XX
     _mm_store_si128((__m128i*)to, _mm_mullo_epi##XX(_mm_load_si128((__m128i*)to), _mm_load_si128((__m128i*)from)));\
 }
 
+#define CREATE_INT128_OPERATOR_DIVIDE(XX) \
+template<>\
+_SIMD_INL_ SIMD_Type_t<int, 128, int##XX##_t> SIMD_Type_t<int, 128, int##XX##_t>::Divide(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm_store_si128((__m128i*)result.Data, _mm_div_epi##XX(_mm_load_si128((__m128i*)a.Data), _mm_load_si128((__m128i*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ SIMD_Type_t<int, 128, uint##XX##_t> SIMD_Type_t<int, 128,uint##XX##_t>::Divide(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm_store_si128((__m128i*)result.Data, _mm_div_epi##XX(_mm_load_si128((__m128i*)a.Data), _mm_load_si128((__m128i*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 128, int##XX##_t>::DivideInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm_store_si128((__m128i*)to.Data, _mm_div_epi##XX(_mm_load_si128((__m128i*)to.Data), _mm_load_si128((__m128i*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 128, uint##XX##_t>::DivideInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm_store_si128((__m128i*)to.Data, _mm_div_epi##XX(_mm_load_si128((__m128i*)to.Data), _mm_load_si128((__m128i*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 128, int##XX##_t>::DivideInplaceRaw(int##XX##_t* to, const int##XX##_t* from)\
+{\
+    _mm_store_si128((__m128i*)to, _mm_div_epi##XX(_mm_load_si128((__m128i*)to), _mm_load_si128((__m128i*)from)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 128, uint##XX##_t>::DivideInplaceRaw(uint##XX##_t* to, const uint##XX##_t* from)\
+{\
+    _mm_store_si128((__m128i*)to, _mm_div_epi##XX(_mm_load_si128((__m128i*)to), _mm_load_si128((__m128i*)from)));\
+}
+
 // ██╗███╗   ██╗████████╗   ██████╗ ███████╗ ██████╗ 
 // ██║████╗  ██║╚══██╔══╝   ╚════██╗██╔════╝██╔════╝ 
 // ██║██╔██╗ ██║   ██║█████╗ █████╔╝███████╗███████╗ 
@@ -897,6 +931,42 @@ _SIMD_INL_ void SIMD_Type_t<int, 256, uint##XX##_t>::MultiplyInplaceRaw(uint##XX
     _mm256_store_si256((__m256i*)to, _mm256_mullo_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from)));\
 }
 
+#define CREATE_INT256_OPERATOR_DIVIDE(XX) \
+template<>\
+_SIMD_INL_ SIMD_Type_t<int, 256, int##XX##_t> SIMD_Type_t<int, 256, int##XX##_t>::Divide(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm256_store_si256((__m256i*)result.Data, _mm256_div_epi##XX(_mm256_load_si256((__m256i*)a.Data), _mm256_load_si256((__m256i*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ SIMD_Type_t<int, 256, uint##XX##_t> SIMD_Type_t<int, 256,uint##XX##_t>::Divide(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm256_store_si256((__m256i*)result.Data, _mm256_div_epi##XX(_mm256_load_si256((__m256i*)a.Data), _mm256_load_si256((__m256i*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 256, int##XX##_t>::DivideInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm256_store_si256((__m256i*)to.Data, _mm256_div_epi##XX(_mm256_load_si256((__m256i*)to.Data), _mm256_load_si256((__m256i*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 256, uint##XX##_t>::DivideInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm256_store_si256((__m256i*)to.Data, _mm256_div_epi##XX(_mm256_load_si256((__m256i*)to.Data), _mm256_load_si256((__m256i*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 256, int##XX##_t>::DivideInplaceRaw(int##XX##_t* to, const int##XX##_t* from)\
+{\
+    _mm256_store_si256((__m256i*)to, _mm256_div_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 256, uint##XX##_t>::DivideInplaceRaw(uint##XX##_t* to, const uint##XX##_t* from)\
+{\
+    _mm256_store_si256((__m256i*)to, _mm256_div_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from)));\
+}
+
+
+
 // ██╗███╗   ██╗████████╗   ███████╗ ██╗██████╗ 
 // ██║████╗  ██║╚══██╔══╝   ██╔════╝███║╚════██╗
 // ██║██╔██╗ ██║   ██║█████╗███████╗╚██║ █████╔╝
@@ -974,6 +1044,40 @@ _SIMD_INL_ void SIMD_Type_t<int, 512, uint##XX##_t>::SubtractInplaceRaw(uint##XX
 }
 
 #define CREATE_INT512_OPERATOR_MULTIPLY(XX) \
+template<>\
+_SIMD_INL_ SIMD_Type_t<int, 512, int##XX##_t> SIMD_Type_t<int, 512, int##XX##_t>::Multiply(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm512_store_si512((__m512i*)result.Data, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)a.Data), _mm512_load_si512((__m512i*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ SIMD_Type_t<int, 512, uint##XX##_t> SIMD_Type_t<int, 512,uint##XX##_t>::Multiply(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    SIMD_Type_t result;\
+    _mm512_store_si512((__m512i*)result.Data, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)a.Data), _mm512_load_si512((__m512i*)b.Data)));\
+    return result;\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 512, int##XX##_t>::MultiplyInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm512_store_si512((__m512i*)to.Data, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)to.Data), _mm512_load_si512((__m512i*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 512, uint##XX##_t>::MultiplyInplace(SIMD_Type_t& to, const SIMD_Type_t& from)\
+{\
+    _mm512_store_si512((__m512i*)to.Data, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)to.Data), _mm512_load_si512((__m512i*)from.Data)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 512, int##XX##_t>::MultiplyInplaceRaw(int##XX##_t* to, const int##XX##_t* from)\
+{\
+    _mm512_store_si512((__m512i*)to, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)to), _mm512_load_si512((__m512i*)from)));\
+}\
+template<>\
+_SIMD_INL_ void SIMD_Type_t<int, 512, uint##XX##_t>::MultiplyInplaceRaw(uint##XX##_t* to, const uint##XX##_t* from)\
+{\
+    _mm512_store_si512((__m512i*)to, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)to), _mm512_load_si512((__m512i*)from)));\
+}
+
+#define CREATE_INT512_OPERATOR_DIVIDE(XX) \
 template<>\
 _SIMD_INL_ SIMD_Type_t<int, 512, int##XX##_t> SIMD_Type_t<int, 512, int##XX##_t>::Multiply(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
     SIMD_Type_t result;\
@@ -1234,12 +1338,18 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT128_OPERATOR_PLUS(16);
     CREATE_INT128_OPERATOR_PLUS(32);
     CREATE_INT128_OPERATOR_PLUS(64);
+
     CREATE_INT128_OPERATOR_MINUS(8);
     CREATE_INT128_OPERATOR_MINUS(16);
     CREATE_INT128_OPERATOR_MINUS(32);
     CREATE_INT128_OPERATOR_MINUS(64);
     
     CREATE_INT128_OPERATOR_MULTIPLY(16);
+
+    CREATE_INT128_OPERATOR_DIVIDE(8);
+    CREATE_INT128_OPERATOR_DIVIDE(16);
+    CREATE_INT128_OPERATOR_DIVIDE(32);
+    CREATE_INT128_OPERATOR_DIVIDE(64);
 #endif
 
 #if defined(SSE4_1_AVAILABLE)
@@ -1254,6 +1364,7 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT256_OPERATOR_PLUS(16);
     CREATE_INT256_OPERATOR_PLUS(32);
     CREATE_INT256_OPERATOR_PLUS(64);
+
     CREATE_INT256_OPERATOR_MINUS(8);
     CREATE_INT256_OPERATOR_MINUS(16);
     CREATE_INT256_OPERATOR_MINUS(32);
@@ -1285,6 +1396,11 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_DOUBLE_OPERATOR_MINUS(256);
     CREATE_DOUBLE_OPERATOR_MULTIPLY(256);
     CREATE_DOUBLE_OPERATOR_DIVIDE(256);
+
+    CREATE_INT256_OPERATOR_DIVIDE(8);
+    CREATE_INT256_OPERATOR_DIVIDE(16);
+    CREATE_INT256_OPERATOR_DIVIDE(32);
+    CREATE_INT256_OPERATOR_DIVIDE(64);
 #endif
 
 #if defined(SIMD_USE_TYPE_FLOAT_256)
@@ -1296,7 +1412,10 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
 #endif
 
 #if defined(AVX512F_AVAILABLE)
-    //TODO: This part couldn't be tested yet due to some hardware incapabilities... :(
+    #define SIMD_USE_TYPE_INT_512 1
+    #define SIMD_USE_TYPE_FLOAT_512 1
+    #define SIMD_USE_TYPE_DOUBLE_512 1
+
     CREATE_INT128_OPERATOR_MULTIPLY(64);
     CREATE_INT256_OPERATOR_MULTIPLY(64);
 
@@ -1304,32 +1423,39 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT512_OPERATOR_PLUS(16);
     CREATE_INT512_OPERATOR_PLUS(32);
     CREATE_INT512_OPERATOR_PLUS(64);
+    
     CREATE_INT512_OPERATOR_MINUS(8);
     CREATE_INT512_OPERATOR_MINUS(16);
     CREATE_INT512_OPERATOR_MINUS(32);
     CREATE_INT512_OPERATOR_MINUS(64);
+
     CREATE_INT512_OPERATOR_MULTIPLY(16);
     CREATE_INT512_OPERATOR_MULTIPLY(32);
     CREATE_INT512_OPERATOR_MULTIPLY(64);
-
-    DECLARE_SIMD_USE_TYPE_INT(int, 512);
 
     CREATE_FLOAT_OPERATOR_PLUS(512);
     CREATE_FLOAT_OPERATOR_MINUS(512);
     CREATE_FLOAT_OPERATOR_MULTIPLY(512);
     CREATE_FLOAT_OPERATOR_DIVIDE(512);
-
-    DECLARE_SIMD_USE_TYPE_FLOATING(float, 512);
-
+    
     CREATE_DOUBLE_OPERATOR_PLUS(512);
     CREATE_DOUBLE_OPERATOR_MINUS(512);
     CREATE_DOUBLE_OPERATOR_MULTIPLY(512);
     CREATE_DOUBLE_OPERATOR_DIVIDE(512);
-
-    DECLARE_SIMD_USE_TYPE_FLOATING(double, 512);
-
 #endif
 
+#if defined(SIMD_USE_TYPE_INT_512)
+    DECLARE_SIMD_USE_TYPE_INT(int, 512);
+#endif
+
+#if defined(SIMD_USE_TYPE_FLOAT_512)
+    DECLARE_SIMD_USE_TYPE_FLOATING(float, 512);
+#endif
+
+#if defined(SIMD_USE_TYPE_DOUBLE_512)
+    DECLARE_SIMD_USE_TYPE_FLOATING(double, 512);
+#endif
+    
 //SIMD::int_XXX checks are not ideal...
 template<typename T>
 using IsSIMDType = typename std::enable_if<

@@ -25,12 +25,18 @@ TEST(SIMDTest, SIMD_TYPE##WIDTH##_##OP_NAME) \
     for (int i = 0; i < TEST_ARRAY_SIZE; i++) { \
         for (int j = 0; j < SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount; j++) { \
             ELEMENT_TYPE value = dist(rng); \
+            while(value == 0) { \
+                value = dist(rng); \
+            } \
             simd_array[i][j] = value; \
             simd_array_original[i][j] = value; \
             plain_array[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value; \
             plain_array_original[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value; \
             \
             ELEMENT_TYPE value2 = dist(rng); \
+            while(value2 == 0) { \
+                value2 = dist(rng); \
+            } \
             simd_array_2[i][j] = value2; \
             plain_array_2[i * SIMD::SIMD_TYPE##_##WIDTH<ELEMENT_TYPE>::ElementCount + j] = value2; \
         } \
@@ -76,6 +82,9 @@ TEST(SIMDTest, SIMD_TYPE##WIDTH##_##OP_NAME) \
             plain_array_original[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j] = value; \
             \
             SIMD_TYPE value2 = dist(rng); \
+            while(value2 == 0) { \
+                value2 = dist(rng); \
+            } \
             simd_array_2[i][j] = value2; \
             plain_array_2[i * SIMD::SIMD_TYPE##_##WIDTH::ElementCount + j] = value2; \
         } \
@@ -255,11 +264,13 @@ BENCHMARK(BM_Plain_##SIMD_TYPE##WIDTH##_with_int8_t_##OP_NAME##_##ARRAY_SIZE)->U
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, +=, Addition, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, -=, Subtraction, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, *=, Multiplication, 50)
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 128, /=, Division, 50)
 
 // Integer tests - Int256
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, +=, Addition, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, -=, Subtraction, 1000)
 TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, *=, Multiplication, 50)
+TEST_SIMD_INTEGER_OPERATION(int, int32_t, 256, /=, Division, 50)
 
 // Float tests - Float256
 TEST_SIMD_FLOAT_OPERATION(float, 256, +=, Addition)
