@@ -38,21 +38,15 @@ A high-performance C++ framework for SIMD (Single Instruction Multiple Data) ope
 
 ### Performance Benchmarks
 
-Performance improvements comparing SIMD operations vs. standard operations:
+Performance improvements comparing SIMD operations vs. standard operations on different platforms with different compilers.
 
-![Benchmark Speedup](benchmark_results_linux_gcc/consolidated_speedup.png)
+#### Linux (GCC) 
+![Benchmark Speedup Linux](benchmark_results_linux_gcc/consolidated_speedup.png)  
 
-## System Information
 
-Tests and benchmarks were run on the following system:
+#### Windows (MSVC)
+![Benchmark Speedup Windows](benchmark_results_windows_msvc/consolidated_speedup.png)
 
-- **CPU**: 16 cores @ 3294 MHz
-- **Cache**:
-  - L1 Data: 32 KiB (x8)
-  - L1 Instruction: 32 KiB (x8)
-  - L2 Unified: 512 KiB (x8)
-  - L3 Unified: 16384 KiB (x1)
-- **Test Date**: May 6, 2025
 
 ## Getting Started
 
