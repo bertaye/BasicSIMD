@@ -4,6 +4,7 @@
 #include <vector>
 #include <cmath>
 #include <random>
+#include <memory>
 
 static const uint32_t TEST_ARRAY_SIZE = 10000;
 
@@ -317,6 +318,64 @@ REGISTER_INT_BENCHMARKS(int, int16_t, 256, *=, Multiplication, 100000, 50)
 // Int256 benchmarks with int8_t
 REGISTER_INT8_BENCHMARKS(int, 256, +=, Addition, 100000)
 REGISTER_INT8_BENCHMARKS(int, 256, -=, Subtraction, 100000)
+
+TEST(SIMDTest, SIMD_int256_with_int32_t_Operators_and_Import) {
+    SIMD::int_256<int32_t> a(1,2,3,4,5,6,7,8);
+    SIMD::int_256<int32_t> b(-1, -1, -1, -1, -1, -1, -1, -1);
+
+    SIMD::int_256<int32_t> c = a + b;
+    for (int i = 0; i < SIMD::int_256<int32_t>::ElementCount; i++) {
+        EXPECT_EQ(c[i], i);
+    }
+
+    SIMD::int_256<int32_t> d = a - b;
+    for(int i = 0; i < SIMD::int_256<int32_t>::ElementCount; i++) {
+        EXPECT_EQ(d[i], i + 2);
+    }
+
+    SIMD::int_256<int32_t> e = a * b;
+    for(int i = 0; i < SIMD::int_256<int32_t>::ElementCount; i++) {
+        EXPECT_EQ(e[i], -i - 1);
+    }
+
+    alignas(SIMD::int_256<int32_t>::Alignment) int32_t data[SIMD::int_256<int32_t>::ElementCount] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    SIMD::int_256<int32_t> f = SIMD::int_256<int32_t>::Import(data);
+    EXPECT_TRUE(f == a);
+
+    a += b;
+    EXPECT_TRUE(a == c);
+}
+
+TEST(SIMDTest, SIMD_float256_Operators_and_Import) {
+    SIMD::float_256 a(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
+    SIMD::float_256 b(5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f, 5.0f);
+
+    SIMD::float_256 c = a + b;
+    for (int i = 0; i < SIMD::float_256::ElementCount; i++) {
+        EXPECT_FLOAT_EQ(c[i], i + 6.0f);
+    }
+
+    SIMD::float_256 d = a - b;
+    for (int i = 0; i < SIMD::float_256::ElementCount; i++) {
+        EXPECT_FLOAT_EQ(d[i], i - 4.0f);
+    }
+
+    SIMD::float_256 e = a * b;
+    for (int i = 0; i < SIMD::float_256::ElementCount; i++) {
+        EXPECT_FLOAT_EQ(e[i], (i + 1.0f) * 5.0f);
+    }
+
+    SIMD::float_256 f = a / b;
+    for (int i = 0; i < SIMD::float_256::ElementCount; i++) {
+        EXPECT_FLOAT_EQ(f[i], (i + 1.0f) / 5.0f);
+    }
+
+    alignas(SIMD::float_256::Alignment) float data[SIMD::float_256::ElementCount] = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+    SIMD::float_256 g = SIMD::float_256::Import(data);
+    for(int i = 0; i < SIMD::float_256::ElementCount; i++) {
+        EXPECT_FLOAT_EQ(g[i], a[i]);
+    }
+}
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);

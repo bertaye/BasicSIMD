@@ -15,6 +15,10 @@
 #include <stdlib.h>
 #endif
 
+#if !defined(BASIC_SIMD_NAMESPACE)
+#define BASIC_SIMD_NAMESPACE SIMD
+#endif
+
 namespace AlignedMemory
 {
 
@@ -526,7 +530,7 @@ public:
     template<typename ...Args,
                     IsElementValid<ContainerType, T_ElementType> = 0, 
                     IsAllElementsCompatible<T_ElementType, Args...> = 0, 
-                    IsSizeValid< SizeBytes / sizeof(T_ElementType), Args...> = 0>
+                    IsSizeValid< ElementCount, Args...> = 0>
     SIMD_Type_t(Args... args) : Data(nullptr), IsImported(false) 
     {
         if (!CPUFeatures::supportsInstructionSet<RequiredInstructionSet<ContainerType, Bits>::value>())
@@ -634,6 +638,12 @@ public:
     static _SIMD_INL_ void DivideInplaceRaw(T_ElementType* to, const T_ElementType* from) {
         static_assert(AssertFalse<T_ElementType>::value, "Division is not supported for this type.");
     }
+    static _SIMD_INL_ bool IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {
+        static_assert(AssertFalse<T_ElementType>::value, "Equality check is not supported for this type.");
+    }
+    static _SIMD_INL_ bool IsEqualInplaceRaw(T_ElementType* to, const T_ElementType* from) {
+        static_assert(AssertFalse<T_ElementType>::value, "Equality check is not supported for this type.");
+    }
     
     _SIMD_INL_ SIMD_Type_t operator+(const SIMD_Type_t& other) const
     {
@@ -647,6 +657,10 @@ public:
     {
         return Subtract(*this, other);
     }
+    _SIMD_INL_ SIMD_Type_t operator/(const SIMD_Type_t& other) const
+    {
+        return Divide(*this, other);
+    }
     _SIMD_INL_ void operator+=(const SIMD_Type_t& other)
     {
         AddInplace(*this, other);
@@ -655,25 +669,34 @@ public:
     {
         MultiplyInplace(*this, other);
     }
-    void operator-=(const SIMD_Type_t& other)
+    _SIMD_INL_ void operator-=(const SIMD_Type_t& other)
     {
         SubtractInplace(*this, other);
+    }
+    _SIMD_INL_ void operator/=(const SIMD_Type_t& other)
+    {
+        DivideInplace(*this, other);
+    }
+    _SIMD_INL_ bool operator==(const SIMD_Type_t& other) const
+    {
+        return IsEqual(*this, other);
     }
     _SIMD_INL_ T_ElementType& operator[](unsigned int index)
     {
         return *(reinterpret_cast<T_ElementType*>(Data) + index);
     }
+
 };
 
 #define DECLARE_SIMD_USE_TYPE_INT(TYPE, XXX) \
-namespace SIMD \
+namespace BASIC_SIMD_NAMESPACE \
  {\
     template<typename ElementType=int32_t>\
     using TYPE##_##XXX = SIMD_Type_t<TYPE, XXX, ElementType>; \
  }
 
 #define DECLARE_SIMD_USE_TYPE_FLOATING(TYPE, XXX) \
-namespace SIMD \
+namespace BASIC_SIMD_NAMESPACE \
  {\
     using TYPE##_##XXX = SIMD_Type_t<TYPE, XXX, TYPE>; \
  }
@@ -821,6 +844,25 @@ _SIMD_INL_ void SIMD_Type_t<int, 128, uint##XX##_t>::DivideInplaceRaw(uint##XX##
     _mm_store_si128((__m128i*)to, _mm_div_epi##XX(_mm_load_si128((__m128i*)to), _mm_load_si128((__m128i*)from)));\
 }
 
+#define CREATE_INT128_OPERATOR_EQUAL(XX) \
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 128, int##XX##_t>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm_movemask_epi8(_mm_cmpeq_epi##XX(_mm_load_si128((__m128i*)a.Data), _mm_load_si128((__m128i*)b.Data))) == 0xFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 128, uint##XX##_t>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm_movemask_epi8(_mm_cmpeq_epi##XX(_mm_load_si128((__m128i*)a.Data), _mm_load_si128((__m128i*)b.Data))) == 0xFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 128, int##XX##_t>::IsEqualInplaceRaw(int##XX##_t* to, const int##XX##_t* from) {\
+    return _mm_movemask_epi8(_mm_cmpeq_epi##XX(_mm_load_si128((__m128i*)to), _mm_load_si128((__m128i*)from))) == 0xFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 128, uint##XX##_t>::IsEqualInplaceRaw(uint##XX##_t* to, const uint##XX##_t* from) {\
+    return _mm_movemask_epi8(_mm_cmpeq_epi##XX(_mm_load_si128((__m128i*)to), _mm_load_si128((__m128i*)from))) == 0xFFFF;\
+}
+
+
 // ██╗███╗   ██╗████████╗   ██████╗ ███████╗ ██████╗ 
 // ██║████╗  ██║╚══██╔══╝   ╚════██╗██╔════╝██╔════╝ 
 // ██║██╔██╗ ██║   ██║█████╗ █████╔╝███████╗███████╗ 
@@ -965,7 +1007,23 @@ _SIMD_INL_ void SIMD_Type_t<int, 256, uint##XX##_t>::DivideInplaceRaw(uint##XX##
     _mm256_store_si256((__m256i*)to, _mm256_div_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from)));\
 }
 
-
+#define CREATE_INT256_OPERATOR_EQUAL(XX) \
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 256, int##XX##_t>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm256_movemask_epi8(_mm256_cmpeq_epi##XX(_mm256_load_si256((__m256i*)a.Data), _mm256_load_si256((__m256i*)b.Data))) == 0xFFFFFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 256, uint##XX##_t>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm256_movemask_epi8(_mm256_cmpeq_epi##XX(_mm256_load_si256((__m256i*)a.Data), _mm256_load_si256((__m256i*)b.Data))) == 0xFFFFFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 256, int##XX##_t>::IsEqualInplaceRaw(int##XX##_t* to, const int##XX##_t* from) {\
+    return _mm256_movemask_epi8(_mm256_cmpeq_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from))) == 0xFFFFFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 256, uint##XX##_t>::IsEqualInplaceRaw(uint##XX##_t* to, const uint##XX##_t* from) {\
+    return _mm256_movemask_epi8(_mm256_cmpeq_epi##XX(_mm256_load_si256((__m256i*)to), _mm256_load_si256((__m256i*)from))) == 0xFFFFFFFF;\
+}
 
 // ██╗███╗   ██╗████████╗   ███████╗ ██╗██████╗ 
 // ██║████╗  ██║╚══██╔══╝   ██╔════╝███║╚════██╗
@@ -1111,6 +1169,24 @@ _SIMD_INL_ void SIMD_Type_t<int, 512, uint##XX##_t>::MultiplyInplaceRaw(uint##XX
     _mm512_store_si512((__m512i*)to, _mm512_mullo_epi##XX(_mm512_load_si512((__m512i*)to), _mm512_load_si512((__m512i*)from)));\
 }
 
+#define CREATE_INT512_OPERATOR_EQUAL(XX) \
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 512, int##XX##_t>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm512_movemask_epi8(_mm512_cmpeq_epi##XX(_mm512_load_si512((__m512i*)a.Data), _mm512_load_si512((__m512i*)b.Data))) == 0xFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 512, uint##XX##_t>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm512_movemask_epi8(_mm512_cmpeq_epi##XX(_mm512_load_si512((__m512i*)a.Data), _mm512_load_si512((__m512i*)b.Data))) == 0xFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 512, int##XX##_t>::IsEqualInplaceRaw(int##XX##_t* to, const int##XX##_t* from) {\
+    return _mm512_movemask_epi8(_mm512_cmpeq_epi##XX(_mm512_load_si512((__m512i*)to), _mm512_load_si512((__m512i*)from))) == 0xFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<int, 512, uint##XX##_t>::IsEqualInplaceRaw(uint##XX##_t* to, const uint##XX##_t* from) {\
+    return _mm512_movemask_epi8(_mm512_cmpeq_epi##XX(_mm512_load_si512((__m512i*)to), _mm512_load_si512((__m512i*)from))) == 0xFFFF;\
+}
+
 //  ███████╗ ██╗       ██████╗   █████╗  ████████╗
 //  ██╔════╝ ██║      ██╔══ ██╗ ██╔══██╗ ╚══██╔══╝
 //  █████╗   ██║      ██║   ██║ ███████║    ██║   
@@ -1191,6 +1267,21 @@ _SIMD_INL_ void SIMD_Type_t<float, XXX, float>::DivideInplaceRaw(float* to, cons
     _mm##XXX##_store_ps((float*)to, _mm##XXX##_div_ps(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)));\
 }
 
+#define CREATE_FLOAT_OPERATOR_EQUAL(XXX) \
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<float, XXX, float>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm##XXX##_cmpeq_ps_mask(_mm##XXX##_load_ps((float*)a.Data), _mm##XXX##_load_ps((float*)b.Data)) == 0xFFFFFFFFFFFFFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<float, XXX, float>::IsEqualInplaceRaw(float* to, const float* from) {\
+    return _mm##XXX##_cmpeq_ps_mask(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)) == 0xFFFFFFFFFFFFFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<float, XXX, float>::IsEqualInplaceRaw(float* to, const float* from) {\
+    return _mm##XXX##_cmpeq_ps_mask(_mm##XXX##_load_ps((float*)to), _mm##XXX##_load_ps((float*)from)) == 0xFFFFFFFFFFFFFFFF;\
+}
+
+
 //  ██████╗   ██████╗  ██╗   ██╗ ██████╗  ██╗      ███████╗
 //  ██╔══██╗ ██╔══ ██╗ ██║   ██║ ██╔══██╗ ██║      ██╔════╝
 //  ██║  ██║ ██║   ██║ ██║   ██║ ██████╔╝ ██║      ███████╗
@@ -1270,6 +1361,21 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     _mm##XXX##_store_pd((double*)to, _mm##XXX##_div_pd(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)));\
 }
 
+#define CREATE_DOUBLE_OPERATOR_EQUAL(XXX) \
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<double, XXX, double>::IsEqual(const SIMD_Type_t& a, const SIMD_Type_t& b) {\
+    return _mm##XXX##_cmpeq_pd_mask(_mm##XXX##_load_pd((double*)a.Data), _mm##XXX##_load_pd((double*)b.Data)) == 0xFFFFFFFFFFFFFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<double, XXX, double>::IsEqualInplaceRaw(double* to, const double* from) {\
+    return _mm##XXX##_cmpeq_pd_mask(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)) == 0xFFFFFFFFFFFFFFFF;\
+}\
+template<>\
+_SIMD_INL_ bool SIMD_Type_t<double, XXX, double>::IsEqualInplaceRaw(double* to, const double* from) {\
+    return _mm##XXX##_cmpeq_pd_mask(_mm##XXX##_load_pd((double*)to), _mm##XXX##_load_pd((double*)from)) == 0xFFFFFFFFFFFFFFFF;\
+}
+
+
 //Get GCC/MSVC Compile Time SIMD Macros
 
 #if defined(_MSC_VER)
@@ -1305,6 +1411,12 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
 #endif
 #if defined(__AVX512F__)
     #define AVX512F_AVAILABLE 1
+#endif
+#if defined(__AVX512BW__)
+    #define AVX512BW_AVAILABLE 1
+#endif
+#if defined(__AVX512DQ__)
+    #define AVX512DQ_AVAILABLE 1
 #endif
 
 //print pragma messages for debug
@@ -1346,6 +1458,10 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT128_OPERATOR_MINUS(16);
     CREATE_INT128_OPERATOR_MINUS(32);
     CREATE_INT128_OPERATOR_MINUS(64);
+
+    CREATE_INT128_OPERATOR_EQUAL(8);
+    CREATE_INT128_OPERATOR_EQUAL(16);
+    CREATE_INT128_OPERATOR_EQUAL(32);
     
     CREATE_INT128_OPERATOR_MULTIPLY(16);
     
@@ -1358,8 +1474,12 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
 #endif
 
 #if defined(SSE4_1_AVAILABLE)
+    #define SIMD_USE_TYPE_INT_128 1
     #define SIMD_USE_TYPE_INT_256 1
+    
+    CREATE_INT128_OPERATOR_EQUAL(64)
     CREATE_INT128_OPERATOR_MULTIPLY(32);
+
 #endif
 
 #if defined(AVX2_AVAILABLE)
@@ -1374,6 +1494,11 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT256_OPERATOR_MINUS(16);
     CREATE_INT256_OPERATOR_MINUS(32);
     CREATE_INT256_OPERATOR_MINUS(64);
+
+    CREATE_INT256_OPERATOR_EQUAL(8);
+    CREATE_INT256_OPERATOR_EQUAL(16);
+    CREATE_INT256_OPERATOR_EQUAL(32);
+    CREATE_INT256_OPERATOR_EQUAL(64);
 
     CREATE_INT256_OPERATOR_MULTIPLY(16);
     CREATE_INT256_OPERATOR_MULTIPLY(32);
@@ -1418,6 +1543,16 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     DECLARE_SIMD_USE_TYPE_FLOATING(double, 256);
 #endif
 
+#if defined(AVX512BW_AVAILABLE)
+    #define SIMD_USE_TYPE_INT_512 1
+    CREATE_INT512_OPERATOR_PLUS(8);
+    CREATE_INT512_OPERATOR_PLUS(16);
+    CREATE_INT512_OPERATOR_MINUS(8);
+    CREATE_INT512_OPERATOR_MINUS(16);
+
+    CREATE_INT512_OPERATOR_MULTIPLY(16);
+#endif
+
 #if defined(AVX512F_AVAILABLE)
     #define SIMD_USE_TYPE_INT_512 1
     #define SIMD_USE_TYPE_FLOAT_512 1
@@ -1426,17 +1561,12 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_INT128_OPERATOR_MULTIPLY(64);
     CREATE_INT256_OPERATOR_MULTIPLY(64);
 
-    CREATE_INT512_OPERATOR_PLUS(8);
-    CREATE_INT512_OPERATOR_PLUS(16);
     CREATE_INT512_OPERATOR_PLUS(32);
     CREATE_INT512_OPERATOR_PLUS(64);
     
-    CREATE_INT512_OPERATOR_MINUS(8);
-    CREATE_INT512_OPERATOR_MINUS(16);
     CREATE_INT512_OPERATOR_MINUS(32);
     CREATE_INT512_OPERATOR_MINUS(64);
 
-    CREATE_INT512_OPERATOR_MULTIPLY(16);
     CREATE_INT512_OPERATOR_MULTIPLY(32);
     CREATE_INT512_OPERATOR_MULTIPLY(64);
 
@@ -1444,12 +1574,21 @@ _SIMD_INL_ void SIMD_Type_t<double, XXX, double>::DivideInplaceRaw(double* to, c
     CREATE_FLOAT_OPERATOR_MINUS(512);
     CREATE_FLOAT_OPERATOR_MULTIPLY(512);
     CREATE_FLOAT_OPERATOR_DIVIDE(512);
+
+    CREATE_FLOAT_OPERATOR_EQUAL(512);
     
+    CREATE_DOUBLE_OPERATOR_PLUS(512);
+    CREATE_DOUBLE_OPERATOR_MINUS(512);
+    CREATE_DOUBLE_OPERATOR_MULTIPLY(512);
+    CREATE_DOUBLE_OPERATOR_DIVIDE(512);
+
+    CREATE_DOUBLE_OPERATOR_EQUAL(512);
+
     #if defined(SVML_COMPATIBLE_COMPILER)
-        CREATE_DOUBLE_OPERATOR_PLUS(512);
-        CREATE_DOUBLE_OPERATOR_MINUS(512);
-        CREATE_DOUBLE_OPERATOR_MULTIPLY(512);
-        CREATE_DOUBLE_OPERATOR_DIVIDE(512);
+        CREATE_INT512_OPERATOR_DIVIDE(8);
+        CREATE_INT512_OPERATOR_DIVIDE(16);
+        CREATE_INT512_OPERATOR_DIVIDE(32);
+        CREATE_INT512_OPERATOR_DIVIDE(64);
     #endif
 #endif
 
@@ -1480,7 +1619,7 @@ using IsSIMDType = typename std::enable_if<
     std::is_same<int,float>::value, //dummy
     int>::type;
 
-namespace SIMD
+namespace BASIC_SIMD_NAMESPACE
 {
 template<typename T, unsigned int _Length, IsSIMDType<T> = 0>
 class Array

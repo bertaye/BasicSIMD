@@ -1,14 +1,14 @@
 name: Linux Tests
 
-
 on:
-    push:
-      branches: [ main, master ]
-    pull_request:
-      branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'SIMD.h'
+      - 'tests/simd_tests.cpp'
   
 permissions:
-    contents: write
+  contents: write
 
 jobs:
   build-and-test:

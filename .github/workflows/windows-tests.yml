@@ -3,8 +3,10 @@ name: Windows Tests
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    paths:
+      - 'SIMD.h'
+      - 'tests/simd_tests.cpp'
+      
 permissions:
   contents: write
 
