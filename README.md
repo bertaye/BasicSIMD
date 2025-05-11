@@ -18,6 +18,7 @@ You can find my contact info in my github profile or in [Contact](#contact) sect
   - Multiplication
   - Division (for floating-point and double-precision)
   - Equality comparison
+- Both compile time and run time check for SIMD capabilities
 - Automatic vectorization with significant performance improvements
 - Comprehensive test suite using Google Test
 - Performance benchmarks using Google Benchmark
