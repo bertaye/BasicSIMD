@@ -4,143 +4,143 @@
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.081 | 0.507 | 6.26x |
+| 100000 | 0.082 | 0.511 | 6.23x |
 
 #### float256 Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.081 | 0.505 | 6.23x |
+| 100000 | 0.084 | 0.532 | 6.33x |
 
 #### float256 Multiplication
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.082 | 0.717 | 8.74x |
+| 100000 | 0.083 | 0.776 | 9.35x |
 
 #### float256 Division
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.104 | 0.806 | 7.75x |
+| 100000 | 0.105 | 0.762 | 7.26x |
 
 #### double256 Addition
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.084 | 0.257 | 3.06x |
+| 100000 | 0.083 | 0.269 | 3.24x |
 
 #### double256 Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.081 | 0.278 | 3.43x |
+| 100000 | 0.082 | 0.279 | 3.40x |
 
 #### double256 Multiplication
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.087 | 0.378 | 4.34x |
+| 100000 | 0.091 | 0.377 | 4.14x |
 
 #### double256 Division
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.143 | 0.561 | 3.92x |
+| 100000 | 0.143 | 0.560 | 3.92x |
 
 #### int128_with_int32 t_Addition
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 1000000 | 1.010 | 2.580 | 2.55x |
+| 1000000 | 1.240 | 2.640 | 2.13x |
 
 #### int128_with_int32 t_Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 1000000 | 1.000 | 2.580 | 2.58x |
+| 1000000 | 1.240 | 2.640 | 2.13x |
 
 #### int128_with_int32 t_Multiplication
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.075 | 0.254 | 3.39x |
+| 100000 | 0.075 | 0.286 | 3.81x |
 
 #### int128_with_int16 t_Addition
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.075 | 0.509 | 6.79x |
+| 100000 | 0.075 | 0.515 | 6.87x |
 
 #### int128_with_int16 t_Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.080 | 0.510 | 6.38x |
+| 100000 | 0.081 | 0.517 | 6.38x |
 
 #### int128_with_int16 t_Multiplication
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.075 | 0.680 | 9.07x |
+| 100000 | 0.076 | 0.697 | 9.17x |
 
 #### int128_with_int8 t_Addition
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.060 | 1.100 | 18.33x |
+| 100000 | 0.061 | 1.080 | 17.70x |
 
 #### int128_with_int8 t_Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.061 | 1.110 | 18.20x |
+| 100000 | 0.062 | 1.090 | 17.58x |
 
 #### int256_with_int32 t_Addition
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.088 | 0.508 | 5.77x |
+| 100000 | 0.088 | 0.503 | 5.72x |
 
 #### int256_with_int32 t_Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.089 | 0.505 | 5.67x |
+| 100000 | 0.088 | 0.503 | 5.72x |
 
 #### int256_with_int32 t_Multiplication
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.088 | 0.572 | 6.50x |
+| 100000 | 0.088 | 0.598 | 6.80x |
 
 #### int256_with_int16 t_Addition
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.087 | 1.030 | 11.84x |
+| 100000 | 0.089 | 1.020 | 11.46x |
 
 #### int256_with_int16 t_Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.086 | 1.030 | 11.98x |
+| 100000 | 0.090 | 1.030 | 11.44x |
 
 #### int256_with_int16 t_Multiplication
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.088 | 1.410 | 16.02x |
+| 100000 | 0.090 | 1.360 | 15.11x |
 
 #### int256_with_int8 t_Addition
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.085 | 2.160 | 25.41x |
+| 100000 | 0.090 | 2.160 | 24.00x |
 
 #### int256_with_int8 t_Subtraction
 
 | Variant | SIMD Time (ms) | Plain Time (ms) | Speedup (x) |
 |---------|---------------|----------------|------------|
-| 100000 | 0.082 | 2.160 | 26.34x |
+| 100000 | 0.083 | 2.160 | 26.02x |
 
