@@ -169,7 +169,7 @@ def plot_comparisons(grouped_benchmarks, output_dir):
     output_path.mkdir(parents=True, exist_ok=True)
     
     # Get current timestamp for the generation time
-    generation_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    generation_time = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S GMT%z")
     
     # Collect data for consolidated plot
     categories = []
@@ -368,7 +368,7 @@ def plot_unit_tests(unit_tests_df, output_dir):
     output_path.mkdir(parents=True, exist_ok=True)
     
     # Get current timestamp for the generation time
-    generation_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    generation_time = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S GMT%z")
     
     # Create a figure for the unit tests table
     plt.figure(figsize=(12, max(6, len(unit_tests_df) * 0.4)))
