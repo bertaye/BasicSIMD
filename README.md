@@ -1,6 +1,10 @@
 # SIMD Operations Framework
 
-A high-performance C++ framework for SIMD (Single Instruction Multiple Data) operations, providing optimized vector math operations for both floating-point and integer data types. This library significantly accelerates data-parallel computations by leveraging CPU SIMD instruction sets.
+A high-performance C++ framework for SIMD (Single Instruction Multiple Data) operations, providing optimized vector math operations for both floating-point and integer data types. This library significantly accelerates data-parallel computations by leveraging CPU SIMD instruction sets. 
+
+At the current state, the most basic operations are supported and benchmark results are provided in [Performance Results](#Performance-Results), an introduction to types and example usage is shown in [Available Types](#available-types) and [Usage Examples](#usage-examples).
+
+You can find my contact info in my github profile or in [Contact](#contact) section, everyone with interest is encouraged to contribute this project and find the guid in [Contributing](#contributing).
 
 ## Features
 
@@ -8,7 +12,7 @@ A high-performance C++ framework for SIMD (Single Instruction Multiple Data) ope
   - `Int128`, `Int256`, and `Int512` for integer operations (with `int8_t`, `int16_t`, and `int32_t`)
   - `Float256` and `Float512` for floating-point operations
   - `Double256` and `Double512` for double-precision operations
-- Standard mathematical operations:
+- Standard mathematical and logical operations:
   - Addition
   - Subtraction
   - Multiplication
@@ -147,7 +151,7 @@ run_tests.sh
 
 ## License
 
-This project is licensed under the GPLv3 License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Contributing
 
@@ -155,7 +159,7 @@ Contributions to extend SIMD support are welcome! The project started based on p
 
 ### How to Contribute
 
-1. Fork the repository
+1. Clone the repository
 2. Create a feature branch
 3. Implement your changes
 4. Add or update tests as appropriate
